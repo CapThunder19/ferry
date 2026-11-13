@@ -14,6 +14,8 @@ your own address**: same BTC as collateral, MUSD debt ≈ your old debt, fixed r
 - **Security model & risks:** [docs/SECURITY.md](docs/SECURITY.md)
 - **On-chain evidence (every testnet tx):** [docs/EVIDENCE.md](docs/EVIDENCE.md)
 - **Demo video script:** [docs/DEMO.md](docs/DEMO.md) · **Pitch deck outline:** [docs/DECK.md](docs/DECK.md)
+- **Deploying (Vercel + Render/Railway):** [docs/DEPLOY.md](docs/DEPLOY.md)
+- **Live demo (testnet):** _add the Vercel URL here after deploying_
 
 ## How it works (30 seconds)
 
@@ -29,9 +31,11 @@ your own address**: same BTC as collateral, MUSD debt ≈ your old debt, fixed r
 
 | Contract | Chain | Address |
 |---|---|---|
-| FerryEscrow (6 h timeout) | Sepolia | [`0x454ccd1b625599a51e58899a29ba57c2d5da6204`](https://sepolia.etherscan.io/address/0x454ccd1b625599a51e58899a29ba57c2d5da6204) |
-| FerryEscrow (5 min, refund demo) | Sepolia | [`0x23040744dd4067fbd868e1ce85a6adf7bfa77458`](https://sepolia.etherscan.io/address/0x23040744dd4067fbd868e1ce85a6adf7bfa77458) |
-| FerryMezo | Mezo testnet (31611) | [`0xa11169c243a471a865fcd0dd64db70427d013cc0`](https://explorer.test.mezo.org/address/0xa11169c243a471a865fcd0dd64db70427d013cc0) |
+| FerryEscrow (6 h timeout) | Sepolia | [`0x149089659d8320197acf6dc22033491343ec3afa`](https://sepolia.etherscan.io/address/0x149089659d8320197acf6dc22033491343ec3afa) |
+| FerryEscrow (5 min, refund demo) | Sepolia | [`0xfdd2d414c28848e0818bc211013ef8319d5fd332`](https://sepolia.etherscan.io/address/0xfdd2d414c28848e0818bc211013ef8319d5fd332) |
+| FerryMezo (with `republish`) | Mezo testnet (31611) | [`0x7f2e244e2325d299d9c261a1f09c044f8d559ec3`](https://explorer.test.mezo.org/address/0x7f2e244e2325d299d9c261a1f09c044f8d559ec3) |
+
+v1 contracts (used for the M2–M4 evidence runs) are listed in [docs/EVIDENCE.md](docs/EVIDENCE.md).
 
 Mezo MUSD system, Aave V3 Sepolia and Wormhole addresses: [shared/addresses.ts](shared/addresses.ts), all verified on chain by `npm run env-check`.
 

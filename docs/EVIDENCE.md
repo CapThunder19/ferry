@@ -17,7 +17,16 @@ Key live values:
 | Mezo params | minNetDebt 1,800 MUSD, borrowingRate 0.1%, gas compensation 200 MUSD, interest 100 bps (1%), 334 troves, TCR 245% (not in Recovery Mode) |
 | Aave Sepolia | WBTC aToken `0x1804Bf30507dc2EB3bDEbbbdd859991EAeF6EefF` (permit supported), USDC variable debt token `0x36B5dE936eF1710E1d22EabE5231b28581a92ECc`, USDC variable APR ≈ 64% |
 
-## Deployments (2026-11-13, testnet)
+## Deployments v2 (current, adds `FerryMezo.republish`)
+
+| Contract | Chain | Address |
+|---|---|---|
+| FerryMezo | Mezo testnet | [`0x7f2e244e2325d299d9c261a1f09c044f8d559ec3`](https://explorer.test.mezo.org/address/0x7f2e244e2325d299d9c261a1f09c044f8d559ec3) |
+| FerryEscrow (6 h timeout) | Sepolia | [`0x149089659d8320197acf6dc22033491343ec3afa`](https://sepolia.etherscan.io/address/0x149089659d8320197acf6dc22033491343ec3afa) |
+| FerryEscrow (5 min timeout) | Sepolia | [`0xfdd2d414c28848e0818bc211013ef8319d5fd332`](https://sepolia.etherscan.io/address/0xfdd2d414c28848e0818bc211013ef8319d5fd332) |
+| VaaVerifier | Sepolia | [`0x5b80abaadf8c6e31dd38e24f3b5a7ab4d36a5f99`](https://sepolia.etherscan.io/address/0x5b80abaadf8c6e31dd38e24f3b5a7ab4d36a5f99) |
+
+## Deployments v1 (2026-11-13, used for M2–M4 below)
 
 | Contract | Chain | Address |
 |---|---|---|
