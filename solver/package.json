@@ -5,7 +5,14 @@
   "type": "module",
   "scripts": {
     "env-check": "tsx scripts/env-check.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "balances": "tsx scripts/balances.ts",
+    "deploy": "tsx scripts/deploy.ts",
+    "m1": "tsx scripts/m1-open-trove.ts",
+    "m2": "tsx scripts/m2-wormhole.ts",
+    "m3": "tsx scripts/m3-eth-leg.ts",
+    "m4": "tsx scripts/m4-e2e.ts",
+    "m4:refund": "tsx scripts/m4-refund.ts"
   },
   "dependencies": {
     "dotenv": "^18.0.10",
