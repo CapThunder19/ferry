@@ -24,3 +24,6 @@ solver/data/
 .DS_Store
 .vscode/
 *.log
+
+# rendered demo video (upload to YouTube instead)
+demo/

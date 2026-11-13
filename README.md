@@ -1,6 +1,20 @@
-# Ferry
+<p align="center">
+  <img src="docs/brand/ferry-icon.png" width="96" alt="Ferry logo">
+</p>
 
-**Move your Bitcoin-backed loan from Aave to Mezo's fixed-rate MUSD loan, in one flow.**
+<h1 align="center">Ferry</h1>
+
+<p align="center">
+  <b>Move your Bitcoin-backed loan from Aave to Mezo’s fixed-rate MUSD loan, in one flow.</b><br>
+  <a href="https://ferry-kappa-three.vercel.app">Live demo (testnet)</a> ·
+  <a href="docs/EVIDENCE.md">On-chain evidence</a> ·
+  <a href="docs/ARCHITECTURE.md">Architecture</a> ·
+  <a href="docs/SECURITY.md">Security</a>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/01-home.jpg" alt="Ferry home page: live Aave variable rate vs Mezo fixed rate, shown as a ferry ticket" width="900">
+</p>
 
 You have WBTC supplied on Aave with a variable-rate USDC/USDT loan against it. Variable rates swing; Mezo lends against
 BTC at a **fixed** rate (1% promotional, 1–5% range). Moving by hand takes about five steps across two chains, and you need cash
@@ -16,6 +30,24 @@ your own address**: same BTC as collateral, MUSD debt ≈ your old debt, fixed r
 - **Demo video script:** [docs/DEMO.md](docs/DEMO.md) · **Pitch deck outline:** [docs/DECK.md](docs/DECK.md)
 - **Deploying (Vercel + Render/Railway):** [docs/DEPLOY.md](docs/DEPLOY.md)
 - **Live demo (testnet):** https://ferry-kappa-three.vercel.app · solver API: https://ferry-1-5541.onrender.com/health
+- **Preview any address (read-only):** `https://ferry-kappa-three.vercel.app/migrate?address=0x…`
+
+## A real migration, start to finish
+
+These screenshots are from one real testnet migration (intent `0x4fc8…3848`), completed in **62 seconds** including the
+Wormhole proof. Every transaction is linked in [docs/EVIDENCE.md](docs/EVIDENCE.md).
+
+| | |
+|---|---|
+| **1. Review your loan.** Ferry reads your Aave position live and shows the Mezo loan you would get: collateral, debt, fixed rate, yearly savings, collateral health and liquidation price. | **2. See every fee.** Solver fee, Mezo’s borrowing fee and the refundable deposit, itemised before you sign. |
+| <img src="docs/screenshots/02-review.jpg" alt="Review screen with the Aave loan and the new Mezo loan"> | <img src="docs/screenshots/03-fees.jpg" alt="Fee breakdown and the before-you-sign checklist"> |
+| **3. Sign three free messages.** Intent and aWBTC permit on Sepolia, then Mezo’s own OpenTrove on Mezo testnet. No gas on Mezo. | **4. Watch it cross.** The solver repays Aave, opens your trove and settles; each step links to its transaction. |
+| <img src="docs/screenshots/04-signing.jpg" alt="Signing steps with the wallet switching to Mezo testnet"> | <img src="docs/screenshots/05-crossing.jpg" alt="Status page mid-migration: Aave repaid, opening the Mezo loan"> |
+
+<p align="center">
+  <img src="docs/screenshots/06-arrived.jpg" alt="Completed migration: Aave position closed, Mezo loan open with 0.045 BTC and 2,062 MUSD at 1% fixed" width="900"><br>
+  <i>Arrived: Aave position closed, Mezo loan open in the user’s own address (0.045 BTC, 2,062.20 MUSD, 1% fixed).</i>
+</p>
 
 ## How it works (30 seconds)
 

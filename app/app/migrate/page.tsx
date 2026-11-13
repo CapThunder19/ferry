@@ -2,10 +2,10 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useConfig, useConnection } from "wagmi";
 import { signTypedData, switchChain, waitForTransactionReceipt, writeContract } from "wagmi/actions";
-import { parseSignature, parseUnits, type Address } from "viem";
+import { getAddress, isAddress, parseSignature, parseUnits, type Address } from "viem";
 import { mezo, sepolia as sep } from "@ferry/shared/addresses";
 import * as abi from "@ferry/shared/abis";
 import { ferryEscrowAbi } from "@ferry/shared/ferryArtifacts";
@@ -43,7 +43,15 @@ const SIGN_STEPS: Omit<SignStep, "state">[] = [
 const toUsd = (btcWad: bigint, priceWad: bigint) => (Number(btcWad) / 1e18) * (Number(priceWad) / 1e18);
 
 export default function MigratePage() {
-  const { address, status } = useConnection();
+  const { address: walletAddress, status } = useConnection();
+  // Read-only preview: /migrate?address=0x… shows any address’s loan (signing still needs that wallet connected).
+  const [previewAddress, setPreviewAddress] = useState<Address | undefined>();
+  useEffect(() => {
+    const a = new URLSearchParams(window.location.search).get("address");
+    if (a && isAddress(a)) setPreviewAddress(getAddress(a));
+  }, []);
+  const address = walletAddress ?? previewAddress;
+  const preview = !walletAddress && !!previewAddress;
   const config = useConfig();
   const router = useRouter();
   const qc = useQueryClient();
@@ -202,7 +210,7 @@ export default function MigratePage() {
   const q = d?.quote;
   const noPosition = d && d.pos.collateralAmount === 0n && d.pos.debtAmount === 0n;
   const canSign = !!q && q.errors.length === 0 && acks.every(Boolean) && !signing?.some((s) => s.state === "active");
-  const wizardStep = status !== "connected" ? 0 : !d || noPosition ? 1 : signing ? 3 : 2;
+  const wizardStep = status !== "connected" && !preview ? 0 : !d || noPosition ? 1 : signing ? 3 : 2;
 
   return (
     <div className="stack" style={{ gap: 24 }}>
@@ -214,7 +222,17 @@ export default function MigratePage() {
         <Wizard steps={WIZARD} current={wizardStep} />
       </div>
 
-      {status !== "connected" && (
+      {preview && (
+        <div className="alert alert-info callout">
+          <span className="icon" aria-hidden>i</span>
+          <span>
+            Read-only preview of <span className="mono">{previewAddress?.slice(0, 6)}…{previewAddress?.slice(-4)}</span>. These are its live
+            numbers. To move a loan, connect the wallet that owns it.
+          </span>
+        </div>
+      )}
+
+      {status !== "connected" && !preview && (
         <div className="card stack" style={{ maxWidth: 620 }}>
           <h2 style={{ margin: 0 }}>Connect your wallet</h2>
           <p className="muted" style={{ margin: 0 }}>
@@ -230,7 +248,7 @@ export default function MigratePage() {
       )}
       {data.isError && <div className="alert alert-bad">{friendlyError(data.error)}</div>}
 
-      {noPosition && (
+      {noPosition && !preview && (
         <div className="card stack" style={{ maxWidth: 720 }}>
           <h2 style={{ margin: 0 }}>No Aave loan found on this address</h2>
           <p className="muted" style={{ margin: 0 }}>
@@ -299,7 +317,7 @@ export default function MigratePage() {
             </div>
           )}
 
-          {q.errors.length === 0 && (
+          {q.errors.length === 0 && !preview && (
             <div className="card stack" style={{ maxWidth: 760 }}>
               <h2 style={{ margin: 0 }}>Before you sign</h2>
               <ul className="checklist">

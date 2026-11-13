@@ -93,9 +93,21 @@ is also unsigned. Ferry's design handles this: the WBTC stays safely in escrow; 
 completes it when guardians resume; otherwise the 6-hour timeout refund applies. As a hardening response, FerryMezo now
 stores each proof and exposes a permissionless `republish(intentId)` for messages guardians missed (next deployment).
 
-## M5 — Solver service
+## M5 + M6 — Full migration through the app and solver API ✅ (v2 contracts, 2026-11-13 15:32 UTC)
 
-## M6 — Browser migration
+Driven through the Ferry web app (Move my loan → sign → status tracker) with a scripted test wallet, submitted to the
+solver HTTP API. Completed end to end in **62 seconds**, including the Wormhole proof and `finalize`. This run is the one shown in the demo video.
+
+User `0xAB9be03f266c3d504F95EE4994B4649b439c347e`: 0.045 WBTC supplied, ~1,851 USDC borrowed on Aave → Mezo trove with 0.045 BTC and 2,062.20 MUSD at 1% fixed.
+Intent `0x4fc8599b60b47ce235452878d6d5aa98a2924f31fac7c1c4ca0f5578a8a23848`.
+
+| Step | Time (UTC) | Tx |
+|---|---|---|
+| Intent validated by solver (POST /intents) | 15:32:11 | — |
+| **Sepolia `executeEthLeg`**: Aave debt repaid on behalf, 0.045 WBTC escrowed | 15:32:40 | [0x0e79…5164](https://sepolia.etherscan.io/tx/0x0e7993679964cc691521ee7efc8df27ec880ccbbb42274ed7c45ffde19645164) |
+| **Mezo `executeMezoLeg`**: trove opened in the user’s address, MUSD to solver, proof published | 15:33:04 | [0x538a…e199](https://explorer.test.mezo.org/tx/0x538ae9df7ad263c847eda65d585c9af1defe57d1448d12ea4a9e62292825e199) |
+| Wormhole VAA signed (FerryMezo v2, sequence 0) | 15:33:06 | [wormholescan](https://wormholescan.io/#/tx/50/0000000000000000000000007f2e244e2325d299d9c261a1f09c044f8d559ec3/0?network=Testnet) |
+| **Sepolia `finalize`**: VAA verified, escrow released to solver → Completed | 15:33:13 | [0x1e77…9944](https://sepolia.etherscan.io/tx/0x1e7742707b87107b13d9e0e7f77ffec3a4efbf51a71bb74253be28105fab9944) |
 
 ## Corrections to the build brief
 
