@@ -8,7 +8,7 @@ import { readAavePosition, readTrove } from "@ferry/shared/readers";
 import { solver, type IntentStatus, type IntentView } from "@/lib/solver";
 import { mezoClient, sepoliaClient } from "@/lib/wagmi";
 import { links, num, short } from "@/lib/format";
-import { Skeleton } from "@/components/ui";
+import { Route, Skeleton } from "@/components/ui";
 
 const ORDER: IntentStatus[] = ["Validated", "EthLegDone", "MezoLegDone", "VaaFetched", "Completed"];
 
@@ -99,17 +99,17 @@ export default function StatusPage({ params }: { params: Promise<{ id: string }>
   const idx = ORDER.indexOf(r.status);
   const progress = done ? 100 : r.status === "Refunded" ? 100 : Math.max(5, ((idx + 1) / ORDER.length) * 100);
   const headline =
-    done ? "Done! Your loan is now on Mezo 🎉"
+    done ? "Arrived. Your loan is now on Mezo."
     : r.status === "Failed" ? "This migration couldn’t start"
     : r.status === "Refunded" ? "Refunded: your equity is back"
     : r.status === "AwaitingRefund" ? "Paused: refund scheduled"
-    : "Moving your loan…";
+    : "Crossing in progress…";
 
   return (
     <div className="stack" style={{ gap: 24 }}>
       <div className="stack" style={{ gap: 10 }}>
         <h1 style={{ margin: 0 }}>{headline}</h1>
-        <div className="progress" aria-label={`${Math.round(progress)}% complete`}><div style={{ width: `${progress}%` }} /></div>
+        <Route progress={progress / 100} />
         <div className="row small muted" style={{ justifyContent: "space-between" }}>
           <span>{terminal ? `Finished in ${elapsed}` : `Running for ${elapsed}`} · migration {short(r.id)}</span>
           <button
@@ -124,7 +124,7 @@ export default function StatusPage({ params }: { params: Promise<{ id: string }>
 
       {NOW[r.status] && (
         <div className={`alert ${r.status === "AwaitingRefund" ? "alert-warn" : "alert-good"} callout`}>
-          <span className="icon" aria-hidden>{r.status === "AwaitingRefund" ? "⏳" : "⚙️"}</span>
+          <span className="icon" aria-hidden>{r.status === "AwaitingRefund" ? "!" : "→"}</span>
           <span><b>Right now:</b> {NOW[r.status]}</span>
         </div>
       )}

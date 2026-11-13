@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useChainId, useConnection } from "wagmi";
 import { mezoTestnet, sepolia } from "@/lib/wagmi";
+import { Boat } from "@/components/Logo";
 
 /** A collapsible plain-language explanation. */
 export function Explain({ title, children }: { title: string; children: ReactNode }) {
@@ -63,6 +64,21 @@ export function NetworkBadge() {
   if (status !== "connected") return null;
   const name = chainId === sepolia.id ? "Sepolia" : chainId === mezoTestnet.id ? "Mezo testnet" : "Unsupported network";
   return <span className={`netbadge ${name === "Unsupported network" ? "wrong" : ""}`}>{name}</span>;
+}
+
+/** The crossing: a dashed route from Aave to Mezo with a boat at `progress` (0–1). */
+export function Route({ progress, from = "Aave · Ethereum", to = "Mezo" }: { progress: number; from?: string; to?: string }) {
+  const p = Math.min(1, Math.max(0, progress));
+  return (
+    <div className="route" role="img" aria-label={`Migration ${Math.round(p * 100)}% complete`}>
+      <div className="boat" style={{ left: `${p * 100}%` }}><Boat /></div>
+      <div className="line"><div className="done" style={{ width: `${p * 100}%` }} /></div>
+      <div className="ports">
+        <span><b>{from}</b></span>
+        <span><b>{to}</b></span>
+      </div>
+    </div>
+  );
 }
 
 export function Skeleton({ lines = 3 }: { lines?: number }) {

@@ -37,7 +37,7 @@ export default function DocsPage() {
 
       <div className="card">
         <h2>Risks</h2>
-        <table className="kv">
+        <table className="kv text">
           <thead>
             <tr><th>Risk</th><th style={{ textAlign: "left" }}>What it means</th><th style={{ textAlign: "left" }}>Mitigation</th></tr>
           </thead>

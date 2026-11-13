@@ -263,7 +263,7 @@ export default function MigratePage() {
 
           <div className="card stack" style={{ gap: 18 }}>
             <p className="eyebrow" style={{ margin: 0 }}>Your new loan on Mezo</p>
-            <div className="grid-kpi">
+            <div className="figures">
               <div className="kpi"><span className="k">Collateral</span><span className="v">{num(q.mezoCollateral, 18, 4)} BTC</span><span className="s">same Bitcoin, moved 1:1</span></div>
               <div className="kpi"><span className="k">You’ll owe</span><span className="v">{num(q.troveDebt, 18, 0)} MUSD</span><span className="s">a BTC-backed dollar stablecoin</span></div>
               <div className="kpi"><span className="k">Interest</span><span className="v" style={{ color: "var(--accent)" }}>{q.mezoAprPct.toFixed(1)}% fixed</span><span className="s">locked when the loan opens</span></div>
@@ -345,7 +345,7 @@ export default function MigratePage() {
       )}
       {error && (
         <div className="alert alert-bad callout" style={{ maxWidth: 760 }}>
-          <span className="icon" aria-hidden>⚠️</span>
+          <span className="icon" aria-hidden>!</span>
           <span style={{ whiteSpace: "pre-wrap" }}>{error}</span>
         </div>
       )}
