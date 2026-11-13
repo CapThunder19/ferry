@@ -25,7 +25,7 @@ import { sepoliaRpc } from "./clients.js";
 import { retry } from "./retry.js";
 import { readAavePosition } from "./aave.js";
 import { mezoNonce, readMezoParams } from "./mezo.js";
-import type { Ctx } from "./legs.js";
+import { ensureSolverDebtAsset, type Ctx } from "./legs.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const USERS_FILE = resolve(here, "../data/test-users.json");
@@ -76,13 +76,7 @@ export async function createAavePosition(ctx: Ctx, user: LocalAccount, wbtcAmoun
 }
 
 /** Makes sure the solver holds enough Aave test USDC (permissionless faucet). */
-export async function ensureSolverUsdc(ctx: Ctx, needed: bigint) {
-  const bal = await ctx.sep.readContract({ address: sepolia.usdc, abi: abi.erc20Abi, functionName: "balanceOf", args: [ctx.sepW.account.address] });
-  if (bal >= needed) return undefined;
-  const hash = await ctx.sepW.writeContract({ address: sepolia.aaveFaucet, abi: abi.aaveFaucetAbi, functionName: "mint", args: [sepolia.usdc, ctx.sepW.account.address, 10_000n * 10n ** 6n] });
-  await ctx.sep.waitForTransactionReceipt({ hash });
-  return hash;
-}
+export const ensureSolverUsdc = (ctx: Ctx, needed: bigint) => ensureSolverDebtAsset(ctx, sepolia.usdc, needed);
 
 /** Quotes from live data and produces the three signatures the frontend would collect. */
 export async function signMigration(

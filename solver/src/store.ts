@@ -27,7 +27,9 @@ export type IntentRecord = {
   escrow: Address;
   ferryMezo: Address;
   txs: { ethLeg?: Hex; mezoLeg?: Hex; finalize?: Hex; refund?: Hex };
-  wormholeSequence?: string;
+  wormholeSequence?: string; // latest published sequence
+  wormholeSequences?: string[]; // original + republished copies
+  republishes?: { hash: Hex; sequence: string; at: string }[];
   vaa?: Hex;
   error?: string;
   attempts: number;

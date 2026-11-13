@@ -1,6 +1,6 @@
 // Solver-side transactions for each leg. Used by the milestone scripts and the solver service.
 import { maxUint256, parseEventLogs, type Address, type Hex } from "viem";
-import { mezo } from "@ferry/shared/addresses";
+import { mezo, sepolia } from "@ferry/shared/addresses";
 import * as abi from "@ferry/shared/abis";
 import { ferryEscrowAbi, ferryMezoAbi } from "@ferry/shared/ferryArtifacts";
 import type { IntentSubmission } from "@ferry/shared/ferry";
@@ -16,6 +16,40 @@ export type Ctx = {
 };
 
 export const makeCtx = (): Ctx => ({ sep: sepoliaPublic(), sepW: sepoliaWallet(), mz: mezoPublic(), mzW: mezoWallet() });
+
+/** Testnet: tops the solver up from Aave's permissionless Sepolia faucet when its stablecoin balance is low. */
+export async function ensureSolverDebtAsset(ctx: Ctx, asset: Address, needed: bigint) {
+  const me = ctx.sepW.account.address;
+  const bal = await ctx.sep.readContract({ address: asset, abi: abi.erc20Abi, functionName: "balanceOf", args: [me] });
+  if (bal >= needed) return undefined;
+  const decimals = await ctx.sep.readContract({ address: asset, abi: abi.erc20Abi, functionName: "decimals" });
+  const amount = 10_000n * 10n ** BigInt(decimals);
+  const mints = (needed - bal) / amount + 1n;
+  let hash: Hex | undefined;
+  for (let i = 0n; i < mints; i++) {
+    hash = await ctx.sepW.writeContract({ address: sepolia.aaveFaucet, abi: abi.aaveFaucetAbi, functionName: "mint", args: [asset, me, amount] });
+    await ctx.sep.waitForTransactionReceipt({ hash });
+  }
+  return hash;
+}
+
+/** Re-emits the stored proof of an executed Mezo leg (FerryMezo v2). Returns the new Wormhole sequence. */
+export async function sendRepublish(ctx: Ctx, ferryMezo: Address, intentId: Hex) {
+  const fee = await ctx.mz.readContract({ address: mezo.wormholeCore, abi: abi.wormholeAbi, functionName: "messageFee" });
+  const { request } = await ctx.mz.simulateContract({
+    account: ctx.mzW.account,
+    address: ferryMezo,
+    abi: ferryMezoAbi,
+    functionName: "republish",
+    args: [intentId],
+    value: fee,
+  });
+  const hash = await ctx.mzW.writeContract(request);
+  const receipt = await ctx.mz.waitForTransactionReceipt({ hash });
+  if (receipt.status !== "success") throw new Error(`republish reverted: ${hash}`);
+  const [ev] = parseEventLogs({ abi: ferryMezoAbi, logs: receipt.logs, eventName: "Republished" });
+  return { hash, sequence: ev.args.sequence };
+}
 
 /** Approves the escrow to pull the solver's debt asset (once, max). */
 export async function ensureSolverAllowance(ctx: Ctx, escrow: Address, debtAsset: Address, needed: bigint) {

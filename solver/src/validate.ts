@@ -1,6 +1,6 @@
 // Off-chain validation before the solver commits any funds (§4.2 step 2 of the brief).
 import { formatEther, formatUnits, hashTypedData, type Address, type Hex } from "viem";
-import { mezo } from "@ferry/shared/addresses";
+import { mezo, sepolia } from "@ferry/shared/addresses";
 import * as abi from "@ferry/shared/abis";
 import { ferryEscrowAbi, ferryMezoAbi } from "@ferry/shared/ferryArtifacts";
 import {
@@ -135,7 +135,12 @@ export async function validateSubmission(
   if (solverBtc < intent.mezoCollateral + policy.mezoGasReserve)
     errors.push(`solver BTC inventory ${formatEther(solverBtc)} < ${formatEther(intent.mezoCollateral)} needed`);
   const solverDebtAsset = await ctx.sep.readContract({ address: intent.debtAsset, abi: abi.erc20Abi, functionName: "balanceOf", args: [ctx.sepW.account.address] });
-  if (solverDebtAsset < intent.maxDebtRepay) errors.push("solver stablecoin inventory too low (top up from the Aave faucet)");
+  // Testnet: the executor tops up from Aave's permissionless faucet right before the eth leg.
+  if (solverDebtAsset < intent.maxDebtRepay && process.env.FERRY_AUTO_FAUCET === "false")
+    errors.push("solver stablecoin inventory too low");
+  if (![sepolia.usdc, sepolia.usdt].map((a) => a.toLowerCase()).includes(intent.debtAsset.toLowerCase()))
+    errors.push("debt asset must be Aave Sepolia USDC or USDT");
+  if (intent.collateralAsset.toLowerCase() !== sepolia.wbtc.toLowerCase()) errors.push("collateral asset must be Aave Sepolia WBTC");
 
   if (errors.length) throw new ValidationError(errors);
 

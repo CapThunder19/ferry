@@ -14,10 +14,11 @@ import { Executor } from "./executor.js";
 import { loadDeployments, requireDeployment } from "./deployments.js";
 import { validateSubmission, ValidationError, DEFAULT_POLICY } from "./validate.js";
 import { readAavePosition } from "./aave.js";
+import { detectDebtAsset } from "@ferry/shared/readers";
 import { readMezoParams, troveStatus } from "./mezo.js";
 import { optionalEnv } from "./env.js";
 
-const PORT = Number(optionalEnv("SOLVER_PORT") ?? 8787);
+const PORT = Number(optionalEnv("PORT") ?? optionalEnv("SOLVER_PORT") ?? 8787); // PORT: set by Railway/Render
 const ctx = makeCtx();
 const store = new IntentStore();
 const executor = new Executor(ctx, store);
@@ -95,6 +96,8 @@ const view = (r: NonNullable<ReturnType<typeof store.get>>) => ({
   ferryMezo: r.ferryMezo,
   txs: r.txs,
   wormholeSequence: r.wormholeSequence,
+  wormholeSequences: r.wormholeSequences,
+  republishes: r.republishes,
   vaa: r.vaa,
   error: r.error,
   quote: r.quote,
@@ -116,10 +119,12 @@ const server = createServer(async (req, res) => {
 
     if (req.method === "GET" && url.pathname === "/quote") {
       const user = addr(url.searchParams.get("user"), "user");
-      const [pos, params, trove] = await Promise.all([readAavePosition(ctx.sep, user), readMezoParams(ctx.mz), troveStatus(ctx.mz, user)]);
+      const debt = await detectDebtAsset(ctx.sep, user);
+      const [pos, params, trove] = await Promise.all([readAavePosition(ctx.sep, user, debt.asset), readMezoParams(ctx.mz), troveStatus(ctx.mz, user)]);
       const quote = quoteMigration(pos, params, DEFAULT_POLICY.minFeeBps);
       if (trove === "active") quote.errors.push("You already have an active Mezo trove (one per address). Use a different address.");
-      return send(res, 200, { position: pos, mezo: params, quote, existingTrove: trove });
+      if (debt.multiple) quote.errors.push("You owe both USDC and USDT on Aave; Ferry v1 migrates a single-stablecoin loan.");
+      return send(res, 200, { position: pos, debtAsset: debt.asset, debtSymbol: debt.symbol, mezo: params, quote, existingTrove: trove });
     }
 
     if (req.method === "POST" && url.pathname === "/intents") {

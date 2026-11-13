@@ -10,29 +10,49 @@ export const vaaUrl = (emitterChain: number, emitter: Address, sequence: bigint)
 export const wormholescanLink = (emitterChain: number, emitter: Address, sequence: bigint) =>
   `https://wormholescan.io/#/tx/${emitterChain}/${pad(emitter).slice(2).toLowerCase()}/${sequence}?network=Testnet`;
 
-/** Polls the Wormholescan testnet API until the guardians have signed the VAA. */
-export async function fetchSignedVaa(
+export class VaaTimeout extends Error {}
+
+async function tryFetch(url: string): Promise<{ vaa?: Hex; status: number }> {
+  const res = await fetch(url);
+  if (!res.ok) return { status: res.status };
+  const body = (await res.json()) as { data?: { vaa?: string } };
+  return { status: res.status, vaa: body.data?.vaa ? toHex(Buffer.from(body.data.vaa, "base64")) : undefined };
+}
+
+/**
+ * Polls the Wormholescan testnet API until the guardians have signed a VAA for any of `sequences`
+ * (the original message and any re-published copies). Throws VaaTimeout after `timeoutMs`.
+ */
+export async function fetchAnySignedVaa(
   emitterChain: number,
   emitter: Address,
-  sequence: bigint,
+  sequences: bigint[],
   { timeoutMs = 30 * 60_000, intervalMs = 10_000, log = (_: string) => {} } = {},
-): Promise<Hex> {
-  const url = vaaUrl(emitterChain, emitter, sequence);
+): Promise<{ vaa: Hex; sequence: bigint }> {
   const start = Date.now();
   let attempt = 0;
   while (Date.now() - start < timeoutMs) {
     attempt++;
-    try {
-      const res = await fetch(url);
-      if (res.ok) {
-        const body = (await res.json()) as { data?: { vaa?: string } };
-        if (body.data?.vaa) return toHex(Buffer.from(body.data.vaa, "base64"));
+    for (const sequence of sequences) {
+      try {
+        const { vaa, status } = await tryFetch(vaaUrl(emitterChain, emitter, sequence));
+        if (vaa) return { vaa, sequence };
+        if (attempt % 6 === 1) log(`VAA ${sequence} not signed yet (HTTP ${status})`);
+      } catch (e) {
+        log(`Wormholescan error: ${(e as Error).message}`);
       }
-      log(`VAA not ready yet (attempt ${attempt}, HTTP ${res.status})`);
-    } catch (e) {
-      log(`Wormholescan error (attempt ${attempt}): ${(e as Error).message}`);
     }
     await new Promise((r) => setTimeout(r, intervalMs));
   }
-  throw new Error(`Timed out waiting for VAA ${url}`);
+  throw new VaaTimeout(`no signed VAA for sequences ${sequences.join(",")} after ${Math.round(timeoutMs / 60_000)} min`);
+}
+
+/** Single-sequence convenience wrapper. */
+export async function fetchSignedVaa(
+  emitterChain: number,
+  emitter: Address,
+  sequence: bigint,
+  opts: { timeoutMs?: number; intervalMs?: number; log?: (m: string) => void } = {},
+): Promise<Hex> {
+  return (await fetchAnySignedVaa(emitterChain, emitter, [sequence], opts)).vaa;
 }
