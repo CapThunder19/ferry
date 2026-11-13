@@ -1,0 +1,39 @@
+
+Ferry M0 environment check — 2026-11-13T06:36:34.686Z
+
+PASS  Sepolia RPC chain id                     11155111, block 12124218
+PASS  Mezo RPC chain id                        31611, block 16749545, gas limit 10000000
+PASS  code: mezo.borrowerOperations            0xCdF7028ceAB81fA0C6971208e83fa7872994beE5 (1159 bytes)
+PASS  code: mezo.borrowerOperationsSignatures  0xD757e3646AF370b15f32EB557F0F8380Df7D639e (1159 bytes)
+PASS  code: mezo.troveManager                  0xE47c80e8c23f6B4A1aE41c34837a0599D5D16bb0 (1159 bytes)
+PASS  code: mezo.priceFeed                     0x86bCF0841622a5dAC14A313a15f96A95421b9366 (1159 bytes)
+PASS  code: mezo.hintHelpers                   0x4e4cBA3779d56386ED43631b4dCD6d8EacEcBCF6 (1159 bytes)
+PASS  code: mezo.sortedTroves                  0x722E4D24FD6Ff8b0AC679450F3D91294607268fA (1159 bytes)
+PASS  code: mezo.interestRateManager           0xD4D6c36A592A2c5e86035A6bca1d57747a567f37 (1159 bytes)
+PASS  code: mezo.musd                          0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503 (6437 bytes)
+PASS  code: mezo.nttManager                    0x20888B20e2F5F405d44261dA96467a1b1acE15be (209 bytes)
+PASS  code: mezo.wormholeTransceiver           0x3106675EDE4A64d70131247466FD8704A3d42123 (209 bytes)
+PASS  code: mezo.wormholeCore                  0x268557122Ffd64c85750d630b716471118F323c8 (680 bytes)
+PASS  code: sepolia.aavePool                   0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951 (2333 bytes)
+PASS  code: sepolia.aaveFaucet                 0xC959483DBa39aa9E78757139af0e9a2EDEb3f42D (3591 bytes)
+PASS  code: sepolia.wbtc                       0x29f2D40B0605204364af54EC677bD022dA425d03 (5462 bytes)
+PASS  code: sepolia.usdc                       0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8 (5462 bytes)
+PASS  code: sepolia.usdt                       0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0 (5462 bytes)
+PASS  code: sepolia.nttManager                 0x1Ca5060BF142c58168aEdb974aABb020BC081A56 (209 bytes)
+PASS  code: sepolia.wormholeTransceiver        0x62d1286683507939c065C12f2d1E80cCa8CCD125 (209 bytes)
+PASS  code: sepolia.musd                       0xeB5a5d39dE4Ea42C2Aa6A57EcA2894376683bB8E (6437 bytes)
+PASS  code: sepolia.wormholeCore               0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78 (680 bytes)
+PASS  Aave reserves include WBTC/USDC/USDT     9 reserves
+PASS  Aave WBTC reserve                        decimals 8, aToken 0x1804Bf30507dc2EB3bDEbbbdd859991EAeF6EefF, vDebt 0xEB016dFd303F19fbDdFb6300eB4AeB2DA7Ceac37, variable APR 0.04%
+PASS  Aave USDC reserve                        decimals 6, aToken 0x16dA4541aD1807f4443d92D26044C1147406EB80, vDebt 0x36B5dE936eF1710E1d22EabE5231b28581a92ECc, variable APR 64.00%
+PASS  Aave USDT reserve                        decimals 6, aToken 0xAF0F6e8b0Dc5c913bbF4d14c22B4E78Dd14310B6, vDebt 0x9844386d29EEd970B9F6a2B9a676083b0478210e, variable APR 63.93%
+PASS  Aave oracle prices                       oracle 0x2da88497588bf89281816106C7259e31AF45a663, WBTC $60000, USDC $1
+PASS  WBTC aToken permit (EIP-2612)            name "Aave Ethereum WBTC", DOMAIN_SEPARATOR 0x87fcdbfad6dd529d44a972c919c1e4a8c546d04c6b7c7eab3c65981fea1a4369
+PASS  Mezo BTC price (PriceFeed.fetchPrice)    $68775.17006
+PASS  Mezo not in Recovery Mode                TCR 247.0%
+PASS  Mezo MUSD parameters                     minNetDebt 1800 MUSD, borrowingRate 0.1%, gasComp 200 MUSD, interest 100 bps, 334 troves
+PASS  Mezo OpenTrove EIP-712 domain            name "BorrowerOperationsSignatures", version "1", chainId 31611, verifyingContract 0xD757e3646AF370b15f32EB557F0F8380Df7D639e
+PASS  Mezo Wormhole core + chain id            core 0x268557122Ffd64c85750d630b716471118F323c8, wormhole chain id 50, message fee 0
+PASS  Sepolia Wormhole core + chain id         core 0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78, wormhole chain id 10002, message fee 0
+
+34/34 checks passed
