@@ -1,0 +1,10 @@
+{
+  "name": "ferry",
+  "private": true,
+  "workspaces": ["shared", "contracts", "solver"],
+  "scripts": {
+    "build:contracts": "npm run build -w contracts",
+    "test:contracts": "npm run test -w contracts",
+    "env-check": "npm run env-check -w solver"
+  }
+}

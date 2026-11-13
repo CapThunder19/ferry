@@ -9,7 +9,8 @@
   },
   "dependencies": {
     "dotenv": "^18.0.10",
-    "viem": "^2.57.19"
+    "viem": "^2.57.19",
+    "@ferry/shared": "*"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

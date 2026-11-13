@@ -10,11 +10,12 @@ dist/
 out/
 *.tsbuildinfo
 
-# foundry
-contracts/out/
+# hardhat
+contracts/artifacts/
 contracts/cache/
-contracts/broadcast/*/31337/
-contracts/lib/
+contracts/types/
+contracts/coverage/
+contracts/ignition/deployments/chain-31337/
 
 # solver state
 solver/data/
