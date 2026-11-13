@@ -10,14 +10,17 @@ import { readTrove } from "../src/mezo.js";
 import { MEZO_WORMHOLE_CHAIN_ID, fetchSignedVaa, wormholescanLink } from "../src/wormhole.js";
 import { mezoAddr, mezoTx, sepTx, step } from "../src/links.js";
 
+import { optionalEnv } from "../src/env.js";
+const TEST_WBTC = optionalEnv("FERRY_TEST_WBTC") ?? "0.045"; // 1:1 BTC the solver must front on Mezo
+const TEST_BORROW = optionalEnv("FERRY_TEST_BORROW") ?? "1850"; // >= Mezo 1,800 MUSD min net debt
 const ctx = makeCtx();
 const d = loadDeployments();
 const ferryMezo = requireDeployment(d.mezo?.ferryMezo, "FerryMezo");
 const escrow = requireDeployment(d.sepolia?.ferryEscrow, "FerryEscrow");
 
 const user = newTestUser("m4-e2e");
-step(`1. Aave position for ${user.address}: supply 0.05 WBTC, borrow 1,850 USDC`);
-const setup = await createAavePosition(ctx, user, parseUnits("0.05", 8), parseUnits("1850", 6));
+step(`1. Aave position for ${user.address}: supply ${TEST_WBTC} WBTC, borrow ${TEST_BORROW} USDC`);
+const setup = await createAavePosition(ctx, user, parseUnits(TEST_WBTC, 8), parseUnits(TEST_BORROW, 6));
 console.log(`  borrow ${sepTx(setup.borrow)}`);
 
 step("2. Quote + user signatures (intent, aToken permit, Mezo OpenTrove)");

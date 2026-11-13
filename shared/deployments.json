@@ -1,0 +1,15 @@
+{
+  "mezo": {
+    "ferryMezo": "0xa11169c243a471a865fcd0dd64db70427d013cc0",
+    "deployedAt": "2026-11-13T06:54:49.300Z",
+    "tx": "0xc7ff65485e293c4a30ccbcd483d0a0ca8f7fbad644eac79e9f2cab9a88eb5c66"
+  },
+  "sepolia": {
+    "ferryEscrow": "0x454ccd1b625599a51e58899a29ba57c2d5da6204",
+    "ferryEscrowTimeout": 21600,
+    "ferryEscrowShort": "0x23040744dd4067fbd868e1ce85a6adf7bfa77458",
+    "ferryEscrowShortTimeout": 300,
+    "vaaVerifier": "0xa11169c243a471a865fcd0dd64db70427d013cc0",
+    "deployedAt": "2026-11-13T06:55:28.346Z"
+  }
+}

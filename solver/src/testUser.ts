@@ -22,6 +22,7 @@ import {
 } from "@ferry/shared/ferry";
 import { parseSignature } from "viem";
 import { sepoliaRpc } from "./clients.js";
+import { retry } from "./retry.js";
 import { readAavePosition } from "./aave.js";
 import { mezoNonce, readMezoParams } from "./mezo.js";
 import type { Ctx } from "./legs.js";
@@ -52,23 +53,25 @@ const userWallet = (account: LocalAccount) => createWalletClient({ account, chai
 /** Gives the user gas, mints WBTC from Aave's faucet, supplies it and borrows USDC: a real Aave position. */
 export async function createAavePosition(ctx: Ctx, user: LocalAccount, wbtcAmount: bigint, usdcBorrow: bigint, log = console.log) {
   const txs: Record<string, Hex> = {};
-  const gas = parseEther("0.01");
+  const gas = parseEther("0.003");
   if ((await ctx.sep.getBalance({ address: user.address })) < gas / 2n) {
     txs.fundGas = await ctx.sepW.sendTransaction({ to: user.address, value: gas });
     await ctx.sep.waitForTransactionReceipt({ hash: txs.fundGas });
-    log(`  funded user with 0.01 ETH: ${txs.fundGas}`);
+    log(`  funded user with 0.003 ETH: ${txs.fundGas}`);
   }
   txs.faucetWbtc = await ctx.sepW.writeContract({ address: sepolia.aaveFaucet, abi: abi.aaveFaucetAbi, functionName: "mint", args: [sepolia.wbtc, user.address, wbtcAmount] });
   await ctx.sep.waitForTransactionReceipt({ hash: txs.faucetWbtc });
 
   const w = userWallet(user);
-  txs.approve = await w.writeContract({ address: sepolia.wbtc, abi: abi.erc20Abi, functionName: "approve", args: [sepolia.aavePool, wbtcAmount] });
-  await ctx.sep.waitForTransactionReceipt({ hash: txs.approve });
-  txs.supply = await w.writeContract({ address: sepolia.aavePool, abi: abi.aavePoolAbi, functionName: "supply", args: [sepolia.wbtc, wbtcAmount, user.address, 0] });
-  await ctx.sep.waitForTransactionReceipt({ hash: txs.supply });
-  txs.borrow = await w.writeContract({ address: sepolia.aavePool, abi: abi.aavePoolAbi, functionName: "borrow", args: [sepolia.usdc, usdcBorrow, 2n, 0, user.address] });
-  const r = await ctx.sep.waitForTransactionReceipt({ hash: txs.borrow });
-  if (r.status !== "success") throw new Error("borrow failed");
+  const send = async (label: string, fn: () => Promise<Hex>) => {
+    const hash = await retry(fn, { label, log });
+    const r = await ctx.sep.waitForTransactionReceipt({ hash });
+    if (r.status !== "success") throw new Error(`${label} reverted: ${hash}`);
+    return hash;
+  };
+  txs.approve = await send("approve", () => w.writeContract({ address: sepolia.wbtc, abi: abi.erc20Abi, functionName: "approve", args: [sepolia.aavePool, wbtcAmount] }));
+  txs.supply = await send("supply", () => w.writeContract({ address: sepolia.aavePool, abi: abi.aavePoolAbi, functionName: "supply", args: [sepolia.wbtc, wbtcAmount, user.address, 0] }));
+  txs.borrow = await send("borrow", () => w.writeContract({ address: sepolia.aavePool, abi: abi.aavePoolAbi, functionName: "borrow", args: [sepolia.usdc, usdcBorrow, 2n, 0, user.address] }));
   return txs;
 }
 

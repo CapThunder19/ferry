@@ -9,14 +9,17 @@ import { readAavePosition } from "../src/aave.js";
 import { sepAddr, sepTx, step } from "../src/links.js";
 import { writeFileSync } from "node:fs";
 
+import { optionalEnv } from "../src/env.js";
+const TEST_WBTC = optionalEnv("FERRY_TEST_WBTC") ?? "0.045"; // 1:1 BTC the solver must front on Mezo
+const TEST_BORROW = optionalEnv("FERRY_TEST_BORROW") ?? "1850"; // >= Mezo 1,800 MUSD min net debt
 const ctx = makeCtx();
 const d = loadDeployments();
 const ferryMezo = requireDeployment(d.mezo?.ferryMezo, "FerryMezo");
 const escrow = requireDeployment(d.sepolia?.ferryEscrowShort, "FerryEscrow (short)");
 
 const user = newTestUser("m3");
-step(`Create Aave position for ${user.address}: supply 0.05 WBTC, borrow 1,850 USDC`);
-const txs = await createAavePosition(ctx, user, parseUnits("0.05", 8), parseUnits("1850", 6));
+step(`Create Aave position for ${user.address}: supply ${TEST_WBTC} WBTC, borrow ${TEST_BORROW} USDC`);
+const txs = await createAavePosition(ctx, user, parseUnits(TEST_WBTC, 8), parseUnits(TEST_BORROW, 6));
 for (const [k, h] of Object.entries(txs)) console.log(`  ${k}: ${sepTx(h)}`);
 const before = await readAavePosition(ctx.sep, user.address);
 console.log(`  aWBTC ${formatUnits(before.collateralAmount, 8)}, USDC debt ${formatUnits(before.debtAmount, 6)}, HF ${formatUnits(before.healthFactor, 18)}`);

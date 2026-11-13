@@ -6,6 +6,7 @@ import { ferryEscrowAbi, ferryMezoAbi } from "@ferry/shared/ferryArtifacts";
 import type { IntentSubmission } from "@ferry/shared/ferry";
 import { mezoPublic, mezoWallet, sepoliaPublic, sepoliaWallet } from "./clients.js";
 import { computeHints, expectedTroveDebt, readMezoParams } from "./mezo.js";
+import { retry } from "./retry.js";
 
 export type Ctx = {
   sep: ReturnType<typeof sepoliaPublic>;
@@ -28,13 +29,13 @@ export async function ensureSolverAllowance(ctx: Ctx, escrow: Address, debtAsset
 
 export async function sendEthLeg(ctx: Ctx, escrow: Address, sub: IntentSubmission) {
   await ensureSolverAllowance(ctx, escrow, sub.intent.debtAsset, sub.intent.maxDebtRepay);
-  const { request, result: intentId } = await ctx.sep.simulateContract({
+  const { request, result: intentId } = await retry(() => ctx.sep.simulateContract({
     account: ctx.sepW.account,
     address: escrow,
     abi: ferryEscrowAbi,
     functionName: "executeEthLeg",
     args: [sub.intent, sub.intentSignature, sub.permit],
-  });
+  }), { label: "simulate executeEthLeg" });
   const hash = await ctx.sepW.writeContract(request);
   const receipt = await ctx.sep.waitForTransactionReceipt({ hash });
   if (receipt.status !== "success") throw new Error(`executeEthLeg reverted: ${hash}`);
@@ -59,14 +60,14 @@ export async function sendMezoLeg(ctx: Ctx, ferryMezo: Address, intentId: Hex, s
     mezoSignature: sub.mezoSignature,
     deadline: sub.mezoDeadline,
   };
-  const { request } = await ctx.mz.simulateContract({
+  const { request } = await retry(() => ctx.mz.simulateContract({
     account: ctx.mzW.account,
     address: ferryMezo,
     abi: ferryMezoAbi,
     functionName: "executeMezoLeg",
     args: [leg],
     value: sub.intent.mezoCollateral + fee,
-  });
+  }), { label: "simulate executeMezoLeg" });
   const hash = await ctx.mzW.writeContract(request);
   const receipt = await ctx.mz.waitForTransactionReceipt({ hash });
   if (receipt.status !== "success") throw new Error(`executeMezoLeg reverted: ${hash}`);
@@ -75,13 +76,13 @@ export async function sendMezoLeg(ctx: Ctx, ferryMezo: Address, intentId: Hex, s
 }
 
 export async function sendFinalize(ctx: Ctx, escrow: Address, vaa: Hex) {
-  const { request } = await ctx.sep.simulateContract({
+  const { request } = await retry(() => ctx.sep.simulateContract({
     account: ctx.sepW.account,
     address: escrow,
     abi: ferryEscrowAbi,
     functionName: "finalize",
     args: [vaa],
-  });
+  }), { label: "simulate finalize" });
   const hash = await ctx.sepW.writeContract(request);
   const receipt = await ctx.sep.waitForTransactionReceipt({ hash });
   if (receipt.status !== "success") throw new Error(`finalize reverted: ${hash}`);
@@ -89,13 +90,13 @@ export async function sendFinalize(ctx: Ctx, escrow: Address, vaa: Hex) {
 }
 
 export async function sendRefund(ctx: Ctx, escrow: Address, intentId: Hex) {
-  const { request } = await ctx.sep.simulateContract({
+  const { request } = await retry(() => ctx.sep.simulateContract({
     account: ctx.sepW.account,
     address: escrow,
     abi: ferryEscrowAbi,
     functionName: "refund",
     args: [intentId],
-  });
+  }), { label: "simulate refund" });
   const hash = await ctx.sepW.writeContract(request);
   const receipt = await ctx.sep.waitForTransactionReceipt({ hash });
   if (receipt.status !== "success") throw new Error(`refund reverted: ${hash}`);
