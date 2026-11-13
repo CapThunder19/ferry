@@ -21,7 +21,7 @@ import {
   type IntentSubmission,
   type MigrationIntent,
 } from "@ferry/shared/ferry";
-import { readAavePosition, readMezoParams, readTroveStatus } from "@ferry/shared/readers";
+import { detectDebtAsset, readAavePosition, readMezoParams, readTroveStatus } from "@ferry/shared/readers";
 import { mezoClient, mezoTestnet, sepolia, sepoliaClient } from "@/lib/wagmi";
 import { ferryAddresses, solver } from "@/lib/solver";
 import { num, ratio, usd } from "@/lib/format";
@@ -37,22 +37,25 @@ export default function MigratePage() {
   const [steps, setSteps] = useState<Step[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [setupBusy, setSetupBusy] = useState<string | null>(null);
+  const [testAsset, setTestAsset] = useState<"USDC" | "USDT">("USDC");
 
   const data = useQuery({
     queryKey: ["migrate", address],
     enabled: !!address,
     queryFn: async () => {
       const user = address as Address;
+      const debt = await detectDebtAsset(sepoliaClient, user);
       const [pos, params, trove] = await Promise.all([
-        readAavePosition(sepoliaClient, user),
+        readAavePosition(sepoliaClient, user, debt.asset),
         readMezoParams(mezoClient),
         readTroveStatus(mezoClient, user),
       ]);
       const quote = quoteMigration(pos, params, DEFAULT_SOLVER_FEE_BPS);
       if (trove === "active") quote.errors.push("This address already has an active Mezo trove (Mezo allows one per address). Use another address.");
+      if (debt.multiple) quote.errors.push("You owe both USDC and USDT on Aave. Ferry v1 migrates a loan in a single stablecoin.");
       const solverUp = await solver.health().then(() => true, () => false);
       if (!solverUp) quote.errors.push("The Ferry solver is offline. Try again later.");
-      return { pos, params, quote, trove };
+      return { pos, params, quote, trove, debt };
     },
     refetchInterval: steps ? false : 30_000,
   });
@@ -66,11 +69,11 @@ export default function MigratePage() {
     setSteps(STEPS.map((label) => ({ label, state: "todo" })));
     let current = 0;
     try {
-      const { pos } = data.data;
+      const { pos, debt } = data.data;
       const user = address as Address;
       // Re-quote right before signing.
       const params = await readMezoParams(mezoClient);
-      const fresh = await readAavePosition(sepoliaClient, user);
+      const fresh = await readAavePosition(sepoliaClient, user, debt.asset);
       const quote = quoteMigration(fresh, params, DEFAULT_SOLVER_FEE_BPS);
       if (quote.errors.length) throw new Error(quote.errors.join("\n"));
       const now = BigInt(Math.floor(Date.now() / 1000));
@@ -83,7 +86,7 @@ export default function MigratePage() {
         user,
         collateralAsset: sep.wbtc,
         collateralAmount: quote.collateralAmount,
-        debtAsset: sep.usdc,
+        debtAsset: debt.asset,
         maxDebtRepay: quote.maxDebtRepay,
         mezoCollateral: quote.mezoCollateral,
         mezoDebtAmount: quote.mezoDebtAmount,
@@ -175,8 +178,9 @@ export default function MigratePage() {
         writeContract(config, { address: sep.wbtc, abi: abi.erc20Abi, functionName: "approve", args: [sep.aavePool, wbtc], chainId: sepolia.id }));
       await send("Supplying WBTC to Aave…", () =>
         writeContract(config, { address: sep.aavePool, abi: abi.aavePoolAbi, functionName: "supply", args: [sep.wbtc, wbtc, address, 0], chainId: sepolia.id }));
-      await send("Borrowing 1,850 USDC…", () =>
-        writeContract(config, { address: sep.aavePool, abi: abi.aavePoolAbi, functionName: "borrow", args: [sep.usdc, parseUnits("1850", 6), 2n, 0, address], chainId: sepolia.id }));
+      const stable = testAsset === "USDT" ? sep.usdt : sep.usdc;
+      await send(`Borrowing 1,850 ${testAsset}…`, () =>
+        writeContract(config, { address: sep.aavePool, abi: abi.aavePoolAbi, functionName: "borrow", args: [stable, parseUnits("1850", 6), 2n, 0, address], chainId: sepolia.id }));
       await qc.invalidateQueries({ queryKey: ["migrate", address] });
     } catch (e) {
       setError((e as Error & { shortMessage?: string }).shortMessage ?? (e as Error).message);
@@ -212,10 +216,20 @@ export default function MigratePage() {
         <div className="card stack">
           <h2>No Aave position found</h2>
           <p className="muted small" style={{ margin: 0 }}>
-            This address has no WBTC supplied or USDC borrowed on Aave V3 Sepolia. To try Ferry, create a test position with
-            Aave&apos;s faucet tokens: 0.045 WBTC supplied and 1,850 USDC borrowed. It takes 4 transactions and needs a little Sepolia ETH.
+            This address has no WBTC supplied or stablecoin borrowed on Aave V3 Sepolia. To try Ferry, create a test position with
+            Aave&apos;s faucet tokens: 0.045 WBTC supplied and 1,850 {testAsset} borrowed. It takes 4 transactions and needs a little Sepolia ETH.
           </p>
           <div className="row">
+            <select
+              value={testAsset}
+              onChange={(e) => setTestAsset(e.target.value as "USDC" | "USDT")}
+              disabled={!!setupBusy}
+              className="btn btn-ghost"
+              aria-label="Stablecoin to borrow"
+            >
+              <option value="USDC">Borrow USDC</option>
+              <option value="USDT">Borrow USDT</option>
+            </select>
             <button className="btn" disabled={!!setupBusy} onClick={createTestPosition}>
               {setupBusy ?? "Create test Aave position"}
             </button>
@@ -231,7 +245,7 @@ export default function MigratePage() {
               <table className="kv">
                 <tbody>
                   <tr><td>Collateral</td><td>{num(d.pos.collateralAmount, 8, 6)} WBTC</td></tr>
-                  <tr><td>Debt</td><td>{num(d.pos.debtAmount, d.pos.debtDecimals)} USDC</td></tr>
+                  <tr><td>Debt</td><td>{num(d.pos.debtAmount, d.pos.debtDecimals)} {d.debt.symbol}</td></tr>
                   <tr><td>Rate</td><td>{q.aaveAprPct.toFixed(2)}% variable</td></tr>
                   <tr><td>Health factor</td><td>{num(d.pos.healthFactor, 18)}</td></tr>
                 </tbody>
@@ -257,7 +271,7 @@ export default function MigratePage() {
               <h2>Where the MUSD debt comes from</h2>
               <table className="kv">
                 <tbody>
-                  <tr><td>Aave debt repaid by the solver (max, incl. 0.2% interest buffer)</td><td>{num(q.maxDebtRepay, d.pos.debtDecimals)} USDC</td></tr>
+                  <tr><td>Aave debt repaid by the solver (max, incl. 0.2% interest buffer)</td><td>{num(q.maxDebtRepay, d.pos.debtDecimals)} {d.debt.symbol}</td></tr>
                   <tr><td>Solver fee ({Number(q.solverFeeBps) / 100}%)</td><td>+ {num(q.solverFee, 18)} MUSD</td></tr>
                   <tr><td>= MUSD borrowed on Mezo (goes to the solver)</td><td>{num(q.mezoDebtAmount, 18)} MUSD</td></tr>
                   <tr><td>Mezo borrowing fee (0.1%)</td><td>+ {num(q.borrowingFee, 18)} MUSD</td></tr>

@@ -30,7 +30,7 @@ export default function StatusPage({ params }: { params: Promise<{ id: string }>
     queryKey: ["intent-chain", id, r?.status],
     enabled: !!r,
     queryFn: async () => {
-      const [trove, aave] = await Promise.all([readTrove(mezoClient, r!.user as Address), readAavePosition(sepoliaClient, r!.user as Address)]);
+      const [trove, aave] = await Promise.all([readTrove(mezoClient, r!.user as Address), readAavePosition(sepoliaClient, r!.user as Address, r!.intent.debtAsset)]);
       return { trove, aave };
     },
   });
@@ -49,6 +49,9 @@ export default function StatusPage({ params }: { params: Promise<{ id: string }>
           <>
             {r.txs.mezoLeg && <a href={links.mezoTx(r.txs.mezoLeg)} target="_blank" rel="noreferrer">Mezo tx ↗</a>}
             <a href={links.mezoAddr(r.user)} target="_blank" rel="noreferrer">Your address on Mezo ↗</a>
+            {r.republishes?.filter((p) => p.hash !== "0x").map((p) => (
+              <a key={p.hash} href={links.mezoTx(p.hash)} target="_blank" rel="noreferrer">Proof republished (seq {p.sequence}) ↗</a>
+            ))}
           </>
         );
       case "VaaFetched":
@@ -83,7 +86,10 @@ export default function StatusPage({ params }: { params: Promise<{ id: string }>
             })}
           </ol>
           {r.status === "MezoLegDone" && (
-            <p className="small muted">Waiting for Wormhole guardians to sign the proof. This usually takes a minute or two on testnet.</p>
+            <p className="small muted">
+              Waiting for Wormhole guardians to sign the proof. This usually takes a minute or two on testnet. If they miss it, the
+              solver republishes the proof automatically. Your trove on Mezo is already open, and your WBTC is safe in the escrow.
+            </p>
           )}
           {r.status === "AwaitingRefund" && (
             <div className="alert alert-warn">The Mezo leg could not be completed. After the escrow timeout the WBTC is split: the solver gets back exactly what it repaid and you get the rest.</div>
@@ -102,7 +108,7 @@ export default function StatusPage({ params }: { params: Promise<{ id: string }>
             <table className="kv">
               <tbody>
                 <tr><td>Aave WBTC collateral</td><td>{num(chain.data.aave.collateralAmount, 8, 6)}</td></tr>
-                <tr><td>Aave USDC debt</td><td>{num(chain.data.aave.debtAmount, chain.data.aave.debtDecimals)}</td></tr>
+                <tr><td>Aave stablecoin debt</td><td>{num(chain.data.aave.debtAmount, chain.data.aave.debtDecimals)}</td></tr>
                 <tr><td>Mezo trove</td><td>{chain.data.trove.status}</td></tr>
                 <tr><td>Trove collateral</td><td>{num(chain.data.trove.coll, 18, 6)} BTC</td></tr>
                 <tr><td>Trove debt</td><td>{num(chain.data.trove.debt, 18)} MUSD</td></tr>

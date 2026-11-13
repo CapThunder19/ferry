@@ -32,6 +32,9 @@ export type IntentView = {
   vaa?: Hex;
   error?: string;
   quote?: Quote;
+  intent: { debtAsset: Address; collateralAmount: bigint; mezoCollateral: bigint; mezoDebtAmount: bigint };
+  wormholeSequences?: string[];
+  republishes?: { hash: Hex; sequence: string; at: string }[];
   history: { status: IntentStatus; at: string; note?: string }[];
   createdAt: string;
   updatedAt: string;

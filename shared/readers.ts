@@ -73,6 +73,28 @@ export async function readAavePosition(c: Client, user: Address, debtAsset: Addr
   };
 }
 
+export const DEBT_ASSETS = [
+  { symbol: "USDC", address: sepolia.usdc },
+  { symbol: "USDT", address: sepolia.usdt },
+] as const;
+
+/**
+ * Which stablecoin the user owes on Aave. Ferry v1 migrates a single-stablecoin position:
+ * `asset` is the one with debt (USDC if none), `multiple` is true if both have debt.
+ */
+export async function detectDebtAsset(c: Client, user: Address) {
+  const debts = await Promise.all(
+    DEBT_ASSETS.map(async (d) => {
+      const { variableDebtToken } = await readReserve(c, d.address);
+      const amount = await c.readContract({ address: variableDebtToken, abi: abi.erc20Abi, functionName: "balanceOf", args: [user] });
+      return { ...d, amount };
+    }),
+  );
+  const withDebt = debts.filter((d) => d.amount > 0n);
+  const pick = withDebt[0] ?? debts[0];
+  return { asset: pick.address as Address, symbol: pick.symbol, multiple: withDebt.length > 1, debts };
+}
+
 /** Aave variable borrow APR (%) for a reserve and Mezo's fixed rate (%). */
 export async function readRates(sep: Client, mz: Client, debtAsset: Address = sepolia.usdc) {
   const [r, ir] = await Promise.all([
