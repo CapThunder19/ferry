@@ -1,0 +1,16 @@
+name: Keep solver awake
+# Render's free plan sleeps a web service after 15 minutes without inbound traffic.
+# This pings the solver's /health every 10 minutes. Set the repo variable SOLVER_URL
+# (Settings → Secrets and variables → Actions → Variables), e.g. https://ferry-solver.onrender.com
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    if: ${{ vars.SOLVER_URL != '' }}
+    steps:
+      - name: Ping /health
+        run: curl -fsS --retry 3 --retry-delay 20 --max-time 90 "${{ vars.SOLVER_URL }}/health"

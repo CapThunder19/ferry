@@ -17,6 +17,16 @@ The blueprint uses Render's **free** plan: no persistent disk (intent history in
 always safe on chain) and the service sleeps after 15 min idle (first request then takes ~1 min). For longer use,
 switch to `plan: starter`, add a disk at `/data` and set `FERRY_STORE_FILE=/data/intents.json`.
 
+**Keep it awake (built in):** the solver pings its own public `/health` every 10 minutes
+([`solver/src/keepalive.ts`](../solver/src/keepalive.ts)). On Render this needs no setup: it uses the
+`RENDER_EXTERNAL_URL` Render sets automatically. Elsewhere set `KEEPALIVE_URL`; tune with `KEEPALIVE_MINUTES`.
+It keeps the service from going idle but can't wake it once asleep, so if Render restarts it, open `/health` once.
+
+**Backup:** the workflow [`.github/workflows/keepalive.yml`](../.github/workflows/keepalive.yml) also pings `/health`
+every 10 minutes. Enable it by adding a repository **variable** `SOLVER_URL` (GitHub → Settings → Secrets and
+variables → Actions → Variables → New repository variable) with the Render URL. GitHub may delay scheduled runs by a
+few minutes; for a guaranteed 5-minute ping use a free monitor such as UptimeRobot on the same `/health` URL.
+
 ### Railway
 1. New project → **Deploy from GitHub repo**.
 2. Settings → Build → **Dockerfile path** `solver/Dockerfile` (build context: repo root).

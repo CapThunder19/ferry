@@ -17,6 +17,7 @@ import { readAavePosition } from "./aave.js";
 import { detectDebtAsset } from "@ferry/shared/readers";
 import { readMezoParams, troveStatus } from "./mezo.js";
 import { optionalEnv } from "./env.js";
+import { startKeepAlive } from "./keepalive.js";
 
 const PORT = Number(optionalEnv("PORT") ?? optionalEnv("SOLVER_PORT") ?? 8787); // PORT: set by Railway/Render
 const ctx = makeCtx();
@@ -177,4 +178,5 @@ server.listen(PORT, () => {
   console.log(`Ferry solver on :${PORT} — escrow ${escrow}, ferryMezo ${ferryMezo}, solver ${ctx.sepW.account.address}`);
   executor.resumeAll();
   setInterval(() => executor.resumeAll(), 60_000);
+  startKeepAlive();
 });
