@@ -26,6 +26,9 @@ contract FerryMezo is Ownable2Step, ReentrancyGuardTransient {
 
     /// @notice intentId => already executed (one Mezo leg per intent).
     mapping(bytes32 => bool) public executed;
+    /// @notice intentId => Wormhole payload of the executed leg, kept so it can be re-published if the guardians
+    ///         miss the original observation. FerryEscrow only releases a Pending escrow once, so copies are harmless.
+    mapping(bytes32 => bytes) public proofs;
 
     event MezoLegExecuted(
         bytes32 indexed intentId,
@@ -36,8 +39,10 @@ contract FerryMezo is Ownable2Step, ReentrancyGuardTransient {
         uint64 sequence
     );
     event Ping(bytes32 tag, uint64 sequence);
+    event Republished(bytes32 indexed intentId, uint64 sequence);
 
     error AlreadyExecuted();
+    error UnknownIntent();
     error WrongValue(uint256 expected, uint256 got);
     error TroveAlreadyActive();
     error TroveNotOpened();
@@ -101,8 +106,19 @@ contract FerryMezo is Ownable2Step, ReentrancyGuardTransient {
                 solver: msg.sender
             })
         );
+        proofs[leg.intentId] = payload;
         sequence = wormhole.publishMessage{value: fee}(0, payload, consistencyLevel);
         emit MezoLegExecuted(leg.intentId, leg.user, msg.sender, troveColl, troveDebt, sequence);
+    }
+
+    /// @notice Anyone can re-emit the stored proof of an executed leg (e.g. a guardian outage dropped the first one).
+    function republish(bytes32 intentId) external payable nonReentrant returns (uint64 sequence) {
+        bytes memory payload = proofs[intentId];
+        if (payload.length == 0) revert UnknownIntent();
+        uint256 fee = wormhole.messageFee();
+        if (msg.value != fee) revert WrongValue(fee, msg.value);
+        sequence = wormhole.publishMessage{value: fee}(0, payload, consistencyLevel);
+        emit Republished(intentId, sequence);
     }
 
     function _openTrove(MezoLeg calldata leg) internal returns (uint256 received) {

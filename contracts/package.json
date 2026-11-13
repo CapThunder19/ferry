@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "hardhat build",
-    "test": "hardhat test"
+    "test": "hardhat test",
+    "export-abis": "hardhat build && node scripts/export-abis.ts"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox-viem": "^5.0.7",

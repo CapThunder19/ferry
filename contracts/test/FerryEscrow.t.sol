@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {FerryFixture} from "./FerryFixture.sol";
 import {FerryEscrow} from "../contracts/ethereum/FerryEscrow.sol";
+import {FerryMezo} from "../contracts/mezo/FerryMezo.sol";
 import {FerryTypes} from "../contracts/libraries/FerryTypes.sol";
 import {IAavePool} from "../contracts/interfaces/IAave.sol";
 import {IWormhole} from "../contracts/interfaces/IWormhole.sol";
@@ -244,6 +245,26 @@ contract FerryEscrowTest is FerryFixture {
         escrow.finalize(vaa);
 
         escrow.finalize(_forgedVaa(id, user, i.mezoCollateral, goodDebt)); // and the correct one passes
+    }
+
+    /// Guardians missed the first message: anyone republishes; the copy finalizes once, further copies fail.
+    function test_finalize_withRepublishedProof() public {
+        FerryTypes.MigrationIntent memory i = makeIntent(WBTC_AMOUNT, MAX_REPAY);
+        bytes32 id = runEthLeg(i);
+        runMezoLeg(id, i); // sequence 0 never gets signed
+        uint64 seq = ferryMezo.republish(id);
+        assertEq(seq, 1);
+        bytes memory vaa = sepoliaWormhole.encodeVaa(MEZO_WH_CHAIN, address(ferryMezo), seq, mezoWormhole.lastPayload(), true);
+        escrow.finalize(vaa);
+        assertEq(wbtc.balanceOf(solver), WBTC_AMOUNT);
+
+        uint64 seq2 = ferryMezo.republish(id);
+        bytes memory vaa2 = sepoliaWormhole.encodeVaa(MEZO_WH_CHAIN, address(ferryMezo), seq2, mezoWormhole.lastPayload(), true);
+        vm.expectRevert(FerryEscrow.NotPending.selector);
+        escrow.finalize(vaa2);
+
+        vm.expectRevert(FerryMezo.UnknownIntent.selector);
+        ferryMezo.republish(bytes32(uint256(123)));
     }
 
     function test_finalize_rejectsPingVersion() public {
