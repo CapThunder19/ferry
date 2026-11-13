@@ -6,45 +6,49 @@ import { sepolia } from "@ferry/shared/addresses";
 import { mezoClient, sepoliaClient } from "@/lib/wagmi";
 import { usd } from "@/lib/format";
 
+const EXAMPLE_DEBT = 10_000;
+
 /** Live: Aave variable borrow APR (getReserveData) vs Mezo fixed rate (InterestRateManager.interestRate). */
 export function RateCompare() {
   const q = useQuery({
     queryKey: ["rates"],
     queryFn: async () => {
-      const [usdc, usdt, mz] = await Promise.all([
-        readRates(sepoliaClient, mezoClient, sepolia.usdc),
-        readRates(sepoliaClient, mezoClient, sepolia.usdt),
-        readMezoParams(mezoClient),
-      ]);
-      return { usdc, usdt, mz };
+      const [usdc, mz] = await Promise.all([readRates(sepoliaClient, mezoClient, sepolia.usdc), readMezoParams(mezoClient)]);
+      return { usdc, mz };
     },
     refetchInterval: 60_000,
   });
 
-  if (q.isError) return <div className="alert alert-bad">Could not read live rates: {(q.error as Error).message}</div>;
+  if (q.isError) return <div className="alert alert-bad">Couldn’t read live rates right now. Please refresh in a moment.</div>;
   const d = q.data;
-  const exampleDebt = 10_000;
-  const saving = d ? (exampleDebt * (d.usdc.aaveAprPct - d.usdc.mezoAprPct)) / 100 : 0;
+  const aaveCost = d ? (EXAMPLE_DEBT * d.usdc.aaveAprPct) / 100 : 0;
+  const mezoCost = d ? (EXAMPLE_DEBT * d.usdc.mezoAprPct) / 100 : 0;
 
   return (
-    <div className="grid grid-3">
-      <div className="card stat">
-        <div className="label">Aave USDC variable APR (Sepolia, live)</div>
-        <div className="value">{d ? `${d.usdc.aaveAprPct.toFixed(2)}%` : "…"}</div>
-        <div className="small muted">USDT: {d ? `${d.usdt.aaveAprPct.toFixed(2)}%` : "…"} · changes every block</div>
+    <div className="card stack" style={{ gap: 14 }}>
+      <div className="row" style={{ justifyContent: "space-between" }}>
+        <b>Borrowing {usd(EXAMPLE_DEBT)} against your BTC</b>
+        <span className="tag">live · testnet</span>
       </div>
-      <div className="card stat">
-        <div className="label">Mezo MUSD fixed rate (live)</div>
-        <div className="value accent">{d ? `${d.usdc.mezoAprPct.toFixed(2)}%` : "…"}</div>
-        <div className="small muted">
-          fixed for the life of your trove · BTC {d ? usd(Number(d.mz.btcPrice) / 1e18) : "…"} on Mezo
+      <div className="compare">
+        <div className="side">
+          <div className="small muted">Aave today</div>
+          <div className="big">{d ? `${d.usdc.aaveAprPct.toFixed(1)}%` : "…"}</div>
+          <div className="small muted">variable: it changes every block</div>
+          <div className="small" style={{ marginTop: 8 }}>≈ {d ? usd(aaveCost) : "…"} / year</div>
+        </div>
+        <div className="arrow" aria-hidden>→</div>
+        <div className="side after">
+          <div className="small muted">Mezo with Ferry</div>
+          <div className="big" style={{ color: "var(--accent)" }}>{d ? `${d.usdc.mezoAprPct.toFixed(1)}%` : "…"}</div>
+          <div className="small muted">fixed for the life of your loan</div>
+          <div className="small" style={{ marginTop: 8 }}>≈ {d ? usd(mezoCost) : "…"} / year</div>
         </div>
       </div>
-      <div className="card stat">
-        <div className="label">Yearly interest saved on a {usd(exampleDebt)} loan</div>
-        <div className="value">{d ? usd(saving) : "…"}</div>
-        <div className="small muted">at today&apos;s testnet rates</div>
-      </div>
+      <p className="small muted" style={{ margin: 0 }}>
+        Rates read live from Aave V3 on Sepolia and Mezo’s InterestRateManager. Testnet rates can be extreme; the 1% Mezo rate is promotional (range 1–5%).
+        BTC on Mezo: {d ? usd(Number(d.mz.btcPrice) / 1e18) : "…"}.
+      </p>
     </div>
   );
 }

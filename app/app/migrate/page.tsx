@@ -24,20 +24,34 @@ import {
 import { detectDebtAsset, readAavePosition, readMezoParams, readTroveStatus } from "@ferry/shared/readers";
 import { mezoClient, mezoTestnet, sepolia, sepoliaClient } from "@/lib/wagmi";
 import { ferryAddresses, solver } from "@/lib/solver";
-import { num, ratio, usd } from "@/lib/format";
+import { num, usd } from "@/lib/format";
+import { friendlyError } from "@/lib/errors";
+import { ConnectButton } from "@/components/ConnectButton";
+import { Explain, HealthMeter, NetworkBadge, Skeleton, Wizard } from "@/components/ui";
 
-type Step = { label: string; state: "todo" | "active" | "done" | "failed" };
-const STEPS = ["Sign migration intent (Sepolia)", "Sign aWBTC permit (Sepolia)", "Switch to Mezo testnet", "Sign Mezo OpenTrove", "Submit to solver"];
+const WIZARD = ["Connect", "Your loan", "Review", "Sign", "Track"];
+
+type SignStep = { title: string; hint: string; state: "todo" | "active" | "done" | "failed" };
+const SIGN_STEPS: Omit<SignStep, "state">[] = [
+  { title: "Approve the move", hint: "Your wallet shows a “MigrationIntent” message on Sepolia. It lists exactly what moves. Signing is free." },
+  { title: "Allow Ferry to move your aWBTC", hint: "A “Permit” message for your Aave collateral token. Also free, no gas." },
+  { title: "Switch to Mezo testnet", hint: "Your wallet asks to switch (or add) the Mezo testnet network. Approve it." },
+  { title: "Approve your new Mezo loan", hint: "Mezo’s own “OpenTrove” message with the exact BTC and MUSD amounts. Free, no gas on Mezo." },
+  { title: "Hand over to the solver", hint: "Ferry sends your signatures to the solver, which checks everything and starts the migration." },
+];
+
+const toUsd = (btcWad: bigint, priceWad: bigint) => (Number(btcWad) / 1e18) * (Number(priceWad) / 1e18);
 
 export default function MigratePage() {
   const { address, status } = useConnection();
   const config = useConfig();
   const router = useRouter();
   const qc = useQueryClient();
-  const [steps, setSteps] = useState<Step[] | null>(null);
+  const [signing, setSigning] = useState<SignStep[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [setupBusy, setSetupBusy] = useState<string | null>(null);
   const [testAsset, setTestAsset] = useState<"USDC" | "USDT">("USDC");
+  const [acks, setAcks] = useState([false, false, false]);
 
   const data = useQuery({
     queryKey: ["migrate", address],
@@ -51,34 +65,32 @@ export default function MigratePage() {
         readTroveStatus(mezoClient, user),
       ]);
       const quote = quoteMigration(pos, params, DEFAULT_SOLVER_FEE_BPS);
-      if (trove === "active") quote.errors.push("This address already has an active Mezo trove (Mezo allows one per address). Use another address.");
-      if (debt.multiple) quote.errors.push("You owe both USDC and USDT on Aave. Ferry v1 migrates a loan in a single stablecoin.");
+      if (trove === "active") quote.errors.push("This address already has a Mezo loan. Mezo allows one loan per address, so please use a different address.");
+      if (debt.multiple) quote.errors.push("You owe both USDC and USDT on Aave. Ferry can move a loan in one stablecoin at a time.");
       const solverUp = await solver.health().then(() => true, () => false);
-      if (!solverUp) quote.errors.push("The Ferry solver is offline. Try again later.");
+      if (!solverUp) quote.errors.push("The Ferry solver isn’t responding. It may be waking up; refresh in a minute.");
       return { pos, params, quote, trove, debt };
     },
-    refetchInterval: steps ? false : 30_000,
+    refetchInterval: signing ? false : 30_000,
   });
 
-  const mark = (i: number, state: Step["state"]) =>
-    setSteps((s) => (s ?? STEPS.map((label) => ({ label, state: "todo" as const }))).map((x, j) => (j === i ? { ...x, state } : x)));
+  const mark = (i: number, state: SignStep["state"]) =>
+    setSigning((s) => (s ?? SIGN_STEPS.map((x) => ({ ...x, state: "todo" as const }))).map((x, j) => (j === i ? { ...x, state } : x)));
 
   async function migrate() {
     if (!address || !data.data) return;
     setError(null);
-    setSteps(STEPS.map((label) => ({ label, state: "todo" })));
+    setSigning(SIGN_STEPS.map((x) => ({ ...x, state: "todo" })));
     let current = 0;
     try {
       const { pos, debt } = data.data;
       const user = address as Address;
-      // Re-quote right before signing.
       const params = await readMezoParams(mezoClient);
       const fresh = await readAavePosition(sepoliaClient, user, debt.asset);
       const quote = quoteMigration(fresh, params, DEFAULT_SOLVER_FEE_BPS);
       if (quote.errors.length) throw new Error(quote.errors.join("\n"));
       const now = BigInt(Math.floor(Date.now() / 1000));
 
-      // 1. intent
       mark((current = 0), "active");
       await switchChain(config, { chainId: sepolia.id });
       const nonce = await sepoliaClient.readContract({ address: ferryAddresses.escrow, abi: ferryEscrowAbi, functionName: "nonces", args: [user] });
@@ -102,7 +114,6 @@ export default function MigratePage() {
       });
       mark(0, "done");
 
-      // 2. aToken permit
       mark((current = 1), "active");
       const permitValue = (quote.collateralAmount * 101n) / 100n + 1n;
       const permitDeadline = now + 3600n;
@@ -116,12 +127,10 @@ export default function MigratePage() {
       const ps = parseSignature(permitSig);
       mark(1, "done");
 
-      // 3. switch to Mezo (MetaMask requires the domain chainId to match the connected chain)
       mark((current = 2), "active");
       await switchChain(config, { chainId: mezoTestnet.id, addEthereumChainParameter: { chainName: "Mezo Testnet" } });
       mark(2, "done");
 
-      // 4. Mezo OpenTrove, recipient = FerryMezo
       mark((current = 3), "active");
       const mezoDeadline = now + 2n * 3600n;
       const mNonce = await mezoClient.readContract({ address: mezo.borrowerOperationsSignatures, abi: abi.borrowerOperationsSignaturesAbi, functionName: "getNonce", args: [user] });
@@ -141,7 +150,6 @@ export default function MigratePage() {
       mark(3, "done");
       switchChain(config, { chainId: sepolia.id }).catch(() => {});
 
-      // 5. submit
       mark((current = 4), "active");
       const submission: IntentSubmission = {
         intent,
@@ -155,8 +163,7 @@ export default function MigratePage() {
       router.push(`/status/${res.id}`);
     } catch (e) {
       mark(current, "failed");
-      const msg = (e as Error & { shortMessage?: string }).shortMessage ?? (e as Error).message;
-      setError(msg);
+      setError(friendlyError(e));
     }
   }
 
@@ -172,156 +179,176 @@ export default function MigratePage() {
         const hash = await tx();
         await waitForTransactionReceipt(config, { hash, chainId: sepolia.id });
       };
-      await send("Minting 0.045 test WBTC from Aave's faucet…", () =>
+      await send("1/4 · Getting 0.045 test WBTC from Aave’s faucet…", () =>
         writeContract(config, { address: sep.aaveFaucet, abi: abi.aaveFaucetAbi, functionName: "mint", args: [sep.wbtc, address, wbtc], chainId: sepolia.id }));
-      await send("Approving WBTC…", () =>
+      await send("2/4 · Allowing Aave to use your WBTC…", () =>
         writeContract(config, { address: sep.wbtc, abi: abi.erc20Abi, functionName: "approve", args: [sep.aavePool, wbtc], chainId: sepolia.id }));
-      await send("Supplying WBTC to Aave…", () =>
+      await send("3/4 · Supplying WBTC to Aave…", () =>
         writeContract(config, { address: sep.aavePool, abi: abi.aavePoolAbi, functionName: "supply", args: [sep.wbtc, wbtc, address, 0], chainId: sepolia.id }));
       const stable = testAsset === "USDT" ? sep.usdt : sep.usdc;
-      await send(`Borrowing 1,850 ${testAsset}…`, () =>
+      await send(`4/4 · Borrowing 1,850 ${testAsset}…`, () =>
         writeContract(config, { address: sep.aavePool, abi: abi.aavePoolAbi, functionName: "borrow", args: [stable, parseUnits("1850", 6), 2n, 0, address], chainId: sepolia.id }));
       await qc.invalidateQueries({ queryKey: ["migrate", address] });
     } catch (e) {
-      setError((e as Error & { shortMessage?: string }).shortMessage ?? (e as Error).message);
+      setError(friendlyError(e));
     } finally {
       setSetupBusy(null);
     }
   }
 
-  if (status !== "connected") {
-    return (
-      <div className="stack">
-        <h1>Migrate</h1>
-        <div className="card">Connect a wallet (MetaMask or another injected wallet) to read your Aave position on Sepolia.</div>
-      </div>
-    );
-  }
+  // ------------------------------------------------------------------ render
 
   const d = data.data;
   const q = d?.quote;
   const noPosition = d && d.pos.collateralAmount === 0n && d.pos.debtAmount === 0n;
+  const canSign = !!q && q.errors.length === 0 && acks.every(Boolean) && !signing?.some((s) => s.state === "active");
+  const wizardStep = status !== "connected" ? 0 : !d || noPosition ? 1 : signing ? 3 : 2;
 
   return (
-    <div className="stack">
-      <div>
-        <h1>Migrate</h1>
-        <p className="lead">Your Aave V3 position on Sepolia, and the Mezo loan Ferry would open for you. All numbers are read live from both chains.</p>
+    <div className="stack" style={{ gap: 24 }}>
+      <div className="stack" style={{ gap: 12 }}>
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          <h1 style={{ margin: 0 }}>Move my loan</h1>
+          <NetworkBadge />
+        </div>
+        <Wizard steps={WIZARD} current={wizardStep} />
       </div>
 
-      {data.isLoading && <div className="card">Reading Aave and Mezo…</div>}
-      {data.isError && <div className="alert alert-bad">Could not read on-chain data: {(data.error as Error).message}</div>}
+      {status !== "connected" && (
+        <div className="card stack" style={{ maxWidth: 620 }}>
+          <h2 style={{ margin: 0 }}>Connect your wallet</h2>
+          <p className="muted" style={{ margin: 0 }}>
+            Ferry only reads your Aave position until you choose to sign. Use MetaMask (or another browser wallet) on the
+            Sepolia test network.
+          </p>
+          <div><ConnectButton /></div>
+        </div>
+      )}
+
+      {status === "connected" && data.isLoading && (
+        <div className="card"><p className="muted">Reading your loan on Aave and Mezo’s live numbers…</p><Skeleton /></div>
+      )}
+      {data.isError && <div className="alert alert-bad">{friendlyError(data.error)}</div>}
 
       {noPosition && (
-        <div className="card stack">
-          <h2>No Aave position found</h2>
-          <p className="muted small" style={{ margin: 0 }}>
-            This address has no WBTC supplied or stablecoin borrowed on Aave V3 Sepolia. To try Ferry, create a test position with
-            Aave&apos;s faucet tokens: 0.045 WBTC supplied and 1,850 {testAsset} borrowed. It takes 4 transactions and needs a little Sepolia ETH.
+        <div className="card stack" style={{ maxWidth: 720 }}>
+          <h2 style={{ margin: 0 }}>No Aave loan found on this address</h2>
+          <p className="muted" style={{ margin: 0 }}>
+            To try Ferry, create a practice loan with Aave’s free test tokens: supply <b>0.045 WBTC</b> and borrow <b>1,850 {testAsset}</b>.
+            It takes 4 quick transactions and a little Sepolia ETH for gas.
           </p>
           <div className="row">
-            <select
-              value={testAsset}
-              onChange={(e) => setTestAsset(e.target.value as "USDC" | "USDT")}
-              disabled={!!setupBusy}
-              className="btn btn-ghost"
-              aria-label="Stablecoin to borrow"
-            >
+            <select value={testAsset} onChange={(e) => setTestAsset(e.target.value as "USDC" | "USDT")} disabled={!!setupBusy} className="btn btn-ghost" aria-label="Stablecoin to borrow">
               <option value="USDC">Borrow USDC</option>
               <option value="USDT">Borrow USDT</option>
             </select>
             <button className="btn" disabled={!!setupBusy} onClick={createTestPosition}>
-              {setupBusy ?? "Create test Aave position"}
+              {setupBusy ?? "Create a practice loan"}
             </button>
           </div>
+          {setupBusy && <p className="small muted" style={{ margin: 0 }}>Confirm each transaction in your wallet. This page updates when it’s done.</p>}
         </div>
       )}
 
       {d && q && !noPosition && (
         <>
-          <div className="grid grid-2">
-            <div className="card">
-              <h2>Before · Aave V3</h2>
-              <table className="kv">
-                <tbody>
-                  <tr><td>Collateral</td><td>{num(d.pos.collateralAmount, 8, 6)} WBTC</td></tr>
-                  <tr><td>Debt</td><td>{num(d.pos.debtAmount, d.pos.debtDecimals)} {d.debt.symbol}</td></tr>
-                  <tr><td>Rate</td><td>{q.aaveAprPct.toFixed(2)}% variable</td></tr>
-                  <tr><td>Health factor</td><td>{num(d.pos.healthFactor, 18)}</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div className="card">
-              <h2>After · Mezo trove</h2>
-              <table className="kv">
-                <tbody>
-                  <tr><td>Collateral</td><td>{num(q.mezoCollateral, 18, 6)} BTC</td></tr>
-                  <tr><td>Debt</td><td>{num(q.troveDebt, 18)} MUSD</td></tr>
-                  <tr><td>Rate</td><td><b style={{ color: "var(--accent)" }}>{q.mezoAprPct.toFixed(2)}% fixed</b></td></tr>
-                  <tr><td>Collateral ratio</td><td>{ratio(q.icr)}</td></tr>
-                  <tr><td>Liquidation price (110%)</td><td>{usd(Number(q.liquidationPrice) / 1e18)} / BTC</td></tr>
-                  <tr><td>Max borrowing capacity</td><td>{num(q.maxBorrowingCapacity, 18, 0)} MUSD</td></tr>
-                </tbody>
-              </table>
-            </div>
+          <div className="card stack" style={{ gap: 10 }}>
+            <p className="eyebrow" style={{ margin: 0 }}>Your loan on Aave today</p>
+            <p className="sentence">
+              You’ve supplied <b>{num(d.pos.collateralAmount, 8, 4)} WBTC</b> (≈ {usd(toUsd(q.mezoCollateral, d.params.btcPrice))}) and
+              borrowed <b>{num(d.pos.debtAmount, d.pos.debtDecimals)} {d.debt.symbol}</b> at a <b>{q.aaveAprPct.toFixed(1)}% variable</b> rate.
+            </p>
+            <p className="small muted" style={{ margin: 0 }}>Aave health factor {num(d.pos.healthFactor, 18)} · variable means the rate can change at any moment.</p>
           </div>
 
-          <div className="grid grid-2">
-            <div className="card">
-              <h2>Where the MUSD debt comes from</h2>
+          <div className="card stack" style={{ gap: 18 }}>
+            <p className="eyebrow" style={{ margin: 0 }}>Your new loan on Mezo</p>
+            <div className="grid-kpi">
+              <div className="kpi"><span className="k">Collateral</span><span className="v">{num(q.mezoCollateral, 18, 4)} BTC</span><span className="s">same Bitcoin, moved 1:1</span></div>
+              <div className="kpi"><span className="k">You’ll owe</span><span className="v">{num(q.troveDebt, 18, 0)} MUSD</span><span className="s">a BTC-backed dollar stablecoin</span></div>
+              <div className="kpi"><span className="k">Interest</span><span className="v" style={{ color: "var(--accent)" }}>{q.mezoAprPct.toFixed(1)}% fixed</span><span className="s">locked when the loan opens</span></div>
+              <div className="kpi"><span className="k">Saved per year</span><span className="v">{usd(q.yearlySavingsUsd)}</span><span className="s">at today’s rates</span></div>
+            </div>
+            <HealthMeter icr={q.icr} />
+            <p className="small" style={{ margin: 0 }}>
+              Your loan can be liquidated if BTC falls below <b>{usd(Number(q.liquidationPrice) / 1e18)}</b>. Today it’s{" "}
+              {usd(Number(d.params.btcPrice) / 1e18)}, a{" "}
+              {Math.max(0, (1 - Number(q.liquidationPrice) / Number(d.params.btcPrice)) * 100).toFixed(0)}% drop away.
+            </p>
+            <Explain title={`Where does ${num(q.troveDebt, 18, 0)} MUSD come from?`}>
               <table className="kv">
                 <tbody>
-                  <tr><td>Aave debt repaid by the solver (max, incl. 0.2% interest buffer)</td><td>{num(q.maxDebtRepay, d.pos.debtDecimals)} {d.debt.symbol}</td></tr>
-                  <tr><td>Solver fee ({Number(q.solverFeeBps) / 100}%)</td><td>+ {num(q.solverFee, 18)} MUSD</td></tr>
-                  <tr><td>= MUSD borrowed on Mezo (goes to the solver)</td><td>{num(q.mezoDebtAmount, 18)} MUSD</td></tr>
+                  <tr><td>Your Aave debt, plus a small buffer for interest until it’s repaid</td><td>{num(q.maxDebtRepay, d.pos.debtDecimals)} {d.debt.symbol}</td></tr>
+                  <tr><td>Ferry solver fee ({Number(q.solverFeeBps) / 100}%)</td><td>+ {num(q.solverFee, 18)} MUSD</td></tr>
                   <tr><td>Mezo borrowing fee (0.1%)</td><td>+ {num(q.borrowingFee, 18)} MUSD</td></tr>
-                  <tr><td>Mezo gas compensation (returned when you close)</td><td>+ {num(d.params.gasCompensation, 18)} MUSD</td></tr>
-                  <tr><td><b>Trove debt</b></td><td><b>{num(q.troveDebt, 18)} MUSD</b></td></tr>
+                  <tr><td>Mezo deposit, which you get back when you close the loan</td><td>+ {num(d.params.gasCompensation, 18, 0)} MUSD</td></tr>
+                  <tr><td><b>Total Mezo loan</b></td><td><b>{num(q.troveDebt, 18)} MUSD</b></td></tr>
                 </tbody>
               </table>
+            </Explain>
+            <Explain title="What is a collateral ratio?">
+              It’s your Bitcoin’s value divided by what you owe. Mezo liquidates loans below 110%. Ferry won’t open a loan under 120%,
+              and warns you under 150%: if Mezo as a whole ever drops below 150% (“Recovery Mode”), loans under 150% can be liquidated too.
+            </Explain>
+          </div>
+
+          {q.errors.length > 0 && (
+            <div className="alert alert-bad">
+              <b>This loan can’t be moved yet</b>
+              <ul>{q.errors.map((e) => <li key={e}>{e}</li>)}</ul>
             </div>
-            <div className="card stack">
-              <div className="stat">
-                <div className="label">Estimated yearly interest saved</div>
-                <div className="value accent">{usd(q.yearlySavingsUsd)}</div>
-                <div className="small muted">
-                  {q.aaveAprPct.toFixed(2)}% variable → {q.mezoAprPct.toFixed(2)}% fixed on {num(d.pos.debtAmount, d.pos.debtDecimals, 0)} of debt, at today&apos;s rates
-                </div>
-              </div>
-              {q.errors.length > 0 && (
-                <div className="alert alert-bad">
-                  <b>Can&apos;t migrate yet</b>
-                  <ul>{q.errors.map((e) => <li key={e}>{e}</li>)}</ul>
-                </div>
-              )}
-              <div className="alert alert-warn">
-                <ul style={{ margin: 0 }}>{q.warnings.map((w) => <li key={w}>{w}</li>)}</ul>
-              </div>
-              <button className="btn btn-lg" disabled={q.errors.length > 0 || (steps?.some((s) => s.state === "active") ?? false)} onClick={migrate}>
-                Sign & migrate
+          )}
+
+          {q.errors.length === 0 && (
+            <div className="card stack" style={{ maxWidth: 760 }}>
+              <h2 style={{ margin: 0 }}>Before you sign</h2>
+              <ul className="checklist">
+                {[
+                  <>I understand my debt changes from {d.debt.symbol} to <b>MUSD</b>, Mezo’s Bitcoin-backed stablecoin.</>,
+                  <>I understand my loan can be liquidated if BTC falls below <b>{usd(Number(q.liquidationPrice) / 1e18)}</b>.</>,
+                  <>I understand this is a <b>testnet</b> demo and the contracts aren’t audited.</>,
+                ].map((text, i) => (
+                  <li key={i}>
+                    <label>
+                      <input type="checkbox" checked={acks[i]} onChange={(e) => setAcks((a) => a.map((v, j) => (j === i ? e.target.checked : v)))} />
+                      <span>{text}</span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+              <button className="btn btn-lg btn-block" disabled={!canSign} onClick={migrate}>
+                {signing?.some((s) => s.state === "active") ? "Check your wallet…" : "Sign & move my loan"}
               </button>
-              <p className="small muted" style={{ margin: 0 }}>
-                You sign three messages: two on Sepolia, one on Mezo. Your wallet switches networks in between. You need no gas.
+              <p className="small muted" style={{ margin: 0, textAlign: "center" }}>
+                3 signatures · free · no gas on Mezo · about 3 minutes in total
               </p>
             </div>
-          </div>
+          )}
         </>
       )}
 
-      {steps && (
-        <div className="card">
+      {signing && (
+        <div className="card" style={{ maxWidth: 760 }}>
           <h2>Signing</h2>
           <ol className="steps">
-            {steps.map((s, i) => (
-              <li key={s.label} className={s.state}>
+            {signing.map((s, i) => (
+              <li key={s.title} className={s.state}>
                 <span className="mark">{s.state === "done" ? "✓" : s.state === "failed" ? "!" : i + 1}</span>
-                <span className="title">{s.label}</span>
+                <div>
+                  <div className="title">{s.title}</div>
+                  {(s.state === "active" || s.state === "failed") && <div className="small muted">{s.hint}</div>}
+                </div>
               </li>
             ))}
           </ol>
         </div>
       )}
-      {error && <div className="alert alert-bad" style={{ whiteSpace: "pre-wrap" }}>{error}</div>}
+      {error && (
+        <div className="alert alert-bad callout" style={{ maxWidth: 760 }}>
+          <span className="icon" aria-hidden>⚠️</span>
+          <span style={{ whiteSpace: "pre-wrap" }}>{error}</span>
+        </div>
+      )}
     </div>
   );
 }

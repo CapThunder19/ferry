@@ -1,18 +1,22 @@
 # Ferry: 2-minute demo video script
 
-**Setup before recording:** solver running (`npm start -w solver`), app running (`npm run dev -w app`) or the live
-link, MetaMask on Sepolia with a fresh address holding ~0.01 Sepolia ETH, and the solver funded with ≥ 0.05 Mezo testnet BTC.
-Create the Aave test position before recording (Migrate page → "Create test Aave position"), so the video starts with a real loan.
+**Before recording**
+- Open https://ferry-1-5541.onrender.com/health once, so the free solver is awake.
+- MetaMask on **Sepolia**, a fresh account with ~0.01 Sepolia ETH that has never had a Mezo loan.
+- On https://ferry-kappa-three.vercel.app/migrate click **Create a practice loan** first (4 transactions), so the video
+  starts with a real Aave loan. Then reload the page.
+- Solver needs ≥ 0.05 Mezo testnet BTC (`npm run balances -w solver`).
+- Record at 1080p, browser zoom 110–125%, hide bookmarks. Keep the narration calm; cut waiting time in editing.
 
-| Time | Screen | Voiceover |
+| Time | Screen | Say |
 |---|---|---|
-| 0:00–0:15 | Home page, live rates card | "If you borrow against your Bitcoin on Aave, you pay a variable rate. Today on testnet that's about 64%. Mezo lends against BTC at a fixed rate, currently 1%. But moving takes five manual steps across two chains, and you need cash up front to repay Aave first." |
-| 0:15–0:25 | Scroll to "How it works" | "Ferry does the move in one flow. A solver fronts the money for both legs. You just sign." |
-| 0:25–0:45 | Migrate page: Before/After cards, debt breakdown, savings | "Ferry reads my Aave position live: 0.045 WBTC against 1,850 USDC. On Mezo I'd have the same BTC as collateral and about 2,061 MUSD of debt. That includes the 0.3% solver fee, Mezo's 0.1% fee and the 200 MUSD gas deposit I get back on close. It shows my collateral ratio, my liquidation price, and that my debt becomes MUSD." |
-| 0:45–1:10 | Click "Sign & migrate": two Sepolia signatures, network switch, Mezo signature | "Two signatures on Sepolia: the migration intent and a permit for my aWBTC. My wallet switches to Mezo, and I sign Mezo's own OpenTrove message with the exact amounts. I don't need any gas on Mezo." |
-| 1:10–1:35 | Status page: steps tick through, click explorer links | "The solver repays my Aave loan and my WBTC goes into an escrow contract. On Mezo, it opens a trove in my own address with its BTC. Wormhole carries the proof back, and only then is the escrow released to the solver." |
-| 1:35–1:50 | Mezo explorer: trove owner = my address; Aave: debt 0 | "Result: my Aave loan is closed, and I have a fixed-rate Mezo loan in my name. If anything had failed, a timeout refund returns all my equity. That path is tested on chain too." |
-| 1:50–2:00 | Home, logo | "Ferry: the on-ramp that brings Bitcoin borrowers to Mezo. Next: Morpho and Aave on Base as sources, and an open solver network." |
+| 0:00–0:15 | **Home**: hero + live rate card | “If you borrow against your Bitcoin on Aave, you pay a variable rate. Right now on testnet it’s about 64%. Mezo lends against Bitcoin at a fixed rate, 1% today. But switching means repaying Aave first, bridging, and opening a new loan by hand.” |
+| 0:15–0:25 | Scroll to **How it works** | “Ferry does it in one guided flow. A solver fronts the money, so you don’t need cash up front, and the new loan is in your own name.” |
+| 0:25–0:50 | **Move my loan**: “Your loan on Aave today”, then “Your new loan on Mezo”, then the health meter | “Ferry reads my Aave loan live: 0.045 WBTC against 1,850 USDC at a variable rate. On Mezo I keep the same Bitcoin, owe about 2,061 MUSD at 1% fixed, and save this much a year. The health meter and liquidation price show how safe the loan is.” Open **“Where does … MUSD come from?”** for 2 seconds. |
+| 0:50–1:15 | Tick the 3 boxes, click **Sign & move my loan**, sign 2× on Sepolia, approve the network switch, sign on Mezo | “I confirm I understand the risks, then sign three free messages: two on Ethereum, one on Mezo, Mezo’s own loan approval. No gas on Mezo.” |
+| 1:15–1:40 | **Status** page: progress bar, “Right now”, steps turning green; click the Mezo transaction link | “The solver repays my Aave loan and holds my WBTC in an escrow nobody controls. On Mezo, it opens a loan in my address with its own BTC. Wormhole then proves the loan exists before the escrow pays the solver back.” |
+| 1:40–1:52 | **After · Mezo** card (Loan: Open ✓), the Mezo explorer showing my address | “Result: my Aave loan is closed and I have a fixed-rate Mezo loan in my name. If anything had failed, a timeout refund returns all my equity.” |
+| 1:52–2:00 | Home | “Ferry: the on-ramp that brings Bitcoin borrowers to Mezo. Next: Morpho and Aave on Base, and an open solver network.” |
 
-**Fallback if the Wormhole testnet is slow:** show a completed migration from `/status`, and the evidence log
-(`docs/EVIDENCE.md`) with the transaction links for every step.
+**If Wormhole testnet is slow:** the status stops at “Waiting for proof”. That’s fine: say “Wormhole now confirms the loan
+across chains; the solver resends the proof automatically if it’s missed”, and show the Mezo loan as Open ✓.
