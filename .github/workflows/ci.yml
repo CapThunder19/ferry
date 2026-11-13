@@ -1,0 +1,42 @@
+name: CI
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Contracts — compile + Solidity tests (unit, fuzz, invariant, reentrancy)
+        run: npm test -w contracts
+      - name: Solver — typecheck
+        run: npm run typecheck -w solver
+      - name: App — build
+        run: npm run build -w app
+
+  slither:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Slither (FerryEscrow, FerryMezo)
+        uses: crytic/slither-action@v0.4.1
+        with:
+          target: contracts/contracts
+          solc-version: 0.8.30
+          slither-args: >-
+            --solc-remaps "@openzeppelin/=node_modules/@openzeppelin/"
+            --solc-args "--evm-version cancun --optimize"
+            --filter-paths "node_modules|contracts/contracts/mocks"
+            --exclude-dependencies
+          fail-on: medium
