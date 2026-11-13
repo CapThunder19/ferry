@@ -1,10 +1,17 @@
 {
   "name": "ferry",
   "private": true,
-  "workspaces": ["shared", "contracts", "solver"],
+  "workspaces": [
+    "shared",
+    "contracts",
+    "solver",
+    "app"
+  ],
   "scripts": {
     "build:contracts": "npm run build -w contracts",
     "test:contracts": "npm run test -w contracts",
-    "env-check": "npm run env-check -w solver"
+    "env-check": "npm run env-check -w solver",
+    "dev:app": "npm run dev -w app",
+    "solver": "npm start -w solver"
   }
 }

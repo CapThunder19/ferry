@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "exports": { "./*": "./*.ts" },
-  "dependencies": { "viem": "^2.57.19" }
+  "exports": {
+    "./deployments.json": "./deployments.json",
+    "./*": "./*.ts"
+  },
+  "dependencies": {
+    "viem": "^2.57.19"
+  }
 }
