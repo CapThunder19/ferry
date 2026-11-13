@@ -15,7 +15,7 @@ your own address**: same BTC as collateral, MUSD debt ≈ your old debt, fixed r
 - **On-chain evidence (every testnet tx):** [docs/EVIDENCE.md](docs/EVIDENCE.md)
 - **Demo video script:** [docs/DEMO.md](docs/DEMO.md) · **Pitch deck outline:** [docs/DECK.md](docs/DECK.md)
 - **Deploying (Vercel + Render/Railway):** [docs/DEPLOY.md](docs/DEPLOY.md)
-- **Live demo (testnet):** _add the Vercel URL here after deploying_
+- **Live demo (testnet):** https://ferry-kappa-three.vercel.app · solver API: https://ferry-1-5541.onrender.com/health
 
 ## How it works (30 seconds)
 
