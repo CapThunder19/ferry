@@ -6,7 +6,7 @@ services:
   - type: web
     name: ferry-solver
     runtime: docker
-    dockerfilePath: ./solver/Dockerfile
+    dockerfilePath: ./Dockerfile
     dockerContext: .
     plan: free
     healthCheckPath: /health
