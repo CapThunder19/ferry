@@ -13,6 +13,10 @@ The solver needs a persistent disk for `intents.json` (its state machine resumes
    - `SOLVER_SEPOLIA_KEY`, `SOLVER_MEZO_KEY`: the **testnet** solver key (same value for both is fine).
 4. Deploy. Check `https://<service>.onrender.com/health` → `{"ok":true,…}`.
 
+The blueprint uses Render's **free** plan: no persistent disk (intent history in `/tmp` is lost on restart; funds are
+always safe on chain) and the service sleeps after 15 min idle (first request then takes ~1 min). For longer use,
+switch to `plan: starter`, add a disk at `/data` and set `FERRY_STORE_FILE=/data/intents.json`.
+
 ### Railway
 1. New project → **Deploy from GitHub repo**.
 2. Settings → Build → **Dockerfile path** `solver/Dockerfile` (build context: repo root).

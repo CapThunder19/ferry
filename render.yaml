@@ -1,21 +1,22 @@
 # Render blueprint for the Ferry solver (testnet). Secrets are set in the Render dashboard, never committed.
+# Free plan: no persistent disk (state in /tmp is lost on restart/redeploy) and the service sleeps after
+# 15 minutes without traffic. Fine for a demo; for anything longer use plan: starter with a disk at /data
+# and FERRY_STORE_FILE=/data/intents.json.
 services:
   - type: web
     name: ferry-solver
     runtime: docker
     dockerfilePath: ./solver/Dockerfile
     dockerContext: .
-    plan: starter
+    plan: free
     healthCheckPath: /health
-    disk:
-      name: ferry-data
-      mountPath: /data
-      sizeGB: 1
     envVars:
       - key: SOLVER_SEPOLIA_KEY
         sync: false
       - key: SOLVER_MEZO_KEY
         sync: false
+      - key: FERRY_STORE_FILE
+        value: /tmp/intents.json
       - key: SEPOLIA_RPC_URL
         value: https://ethereum-sepolia-rpc.publicnode.com
       - key: MEZO_RPC_URL
