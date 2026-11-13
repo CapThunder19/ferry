@@ -4,37 +4,7 @@ import * as abi from "@ferry/shared/abis";
 import { nominalCR, type MezoParams } from "@ferry/shared/ferry";
 import type { MezoPublic } from "./clients.js";
 
-export const TROVE_STATUS = ["nonExistent", "active", "closedByOwner", "closedByLiquidation", "closedByRedemption"] as const;
-
-/** Live Mezo parameters, always read at the latest block (the public RPC can lag). */
-export async function readMezoParams(c: MezoPublic): Promise<MezoParams> {
-  const btcPrice = await c.readContract({ address: mezo.priceFeed, abi: abi.priceFeedAbi, functionName: "fetchPrice", blockTag: "latest" });
-  const [recoveryMode, borrowingRate, gasCompensation, minNetDebt, interestRate] = await Promise.all([
-    c.readContract({ address: mezo.troveManager, abi: abi.troveManagerAbi, functionName: "checkRecoveryMode", args: [btcPrice], blockTag: "latest" }),
-    c.readContract({ address: mezo.borrowerOperations, abi: abi.borrowerOperationsAbi, functionName: "borrowingRate", blockTag: "latest" }),
-    c.readContract({ address: mezo.borrowerOperations, abi: abi.borrowerOperationsAbi, functionName: "MUSD_GAS_COMPENSATION", blockTag: "latest" }),
-    c.readContract({ address: mezo.borrowerOperations, abi: abi.borrowerOperationsAbi, functionName: "minNetDebt", blockTag: "latest" }),
-    c.readContract({ address: mezo.interestRateManager, abi: abi.interestRateManagerAbi, functionName: "interestRate", blockTag: "latest" }),
-  ]);
-  return { btcPrice, recoveryMode, borrowingRate, gasCompensation, minNetDebt, interestRateBps: Number(interestRate) };
-}
-
-export async function troveStatus(c: MezoPublic, user: Address) {
-  const s = await c.readContract({ address: mezo.troveManager, abi: abi.troveManagerAbi, functionName: "getTroveStatus", args: [user], blockTag: "latest" });
-  return TROVE_STATUS[s] ?? "unknown";
-}
-
-export async function readTrove(c: MezoPublic, user: Address) {
-  const [status, coll, debt, principal, rate, maxCap] = await Promise.all([
-    troveStatus(c, user),
-    c.readContract({ address: mezo.troveManager, abi: abi.troveManagerAbi, functionName: "getTroveColl", args: [user], blockTag: "latest" }),
-    c.readContract({ address: mezo.troveManager, abi: abi.troveManagerAbi, functionName: "getTroveDebt", args: [user], blockTag: "latest" }),
-    c.readContract({ address: mezo.troveManager, abi: abi.troveManagerAbi, functionName: "getTrovePrincipal", args: [user], blockTag: "latest" }),
-    c.readContract({ address: mezo.troveManager, abi: abi.troveManagerAbi, functionName: "getTroveInterestRate", args: [user], blockTag: "latest" }),
-    c.readContract({ address: mezo.troveManager, abi: abi.troveManagerAbi, functionName: "getTroveMaxBorrowingCapacity", args: [user], blockTag: "latest" }),
-  ]);
-  return { status, coll, debt, principal, interestRateBps: Number(rate), maxBorrowingCapacity: maxCap };
-}
+export { TROVE_STATUS, readMezoParams, readTrove, readTroveStatus as troveStatus } from "@ferry/shared/readers";
 
 /**
  * Insert hints for a new trove: HintHelpers.getApproxHint, then SortedTroves.findInsertPosition.
