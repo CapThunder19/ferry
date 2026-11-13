@@ -86,6 +86,11 @@ Checks: Mezo net debt ≥ 1,800 MUSD; ICR ≥ 120% (hard), warning below 150% (C
   Mezo and consumed VAA hashes on Sepolia.
 - **Republishable proofs.** FerryMezo stores each proof payload; `republish(intentId)` re-emits it if guardians missed the
   original observation (seen live on 2026-11-13). Duplicates are harmless: the escrow releases a Pending intent once.
+  The solver republishes automatically when no signature arrives within 10 minutes (up to 3 times), then polls every
+  published sequence and finalizes with whichever VAA is signed first.
+- **Parallel intents, serialised transactions.** Each intent advances independently (waiting for a VAA never blocks
+  other users); the solver's own transactions are serialised per chain with a mutex so it never races its own nonces.
+- **USDC or USDT.** The app and solver detect which stablecoin the user owes; v1 rejects positions owing both.
 - **Hints.** Computed right before the Mezo leg with `HintHelpers.getApproxHint` (15·√n trials) and
   `SortedTroves.findInsertPosition` — the live testnet has 330+ troves. The Mezo leg used 731k gas (block limit 10M).
 - **RPC lag.** The public Sepolia endpoint is load-balanced; simulations and dependent writes are retried with backoff,

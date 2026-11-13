@@ -1,0 +1,22 @@
+# Render blueprint for the Ferry solver (testnet). Secrets are set in the Render dashboard, never committed.
+services:
+  - type: web
+    name: ferry-solver
+    runtime: docker
+    dockerfilePath: ./solver/Dockerfile
+    dockerContext: .
+    plan: starter
+    healthCheckPath: /health
+    disk:
+      name: ferry-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: SOLVER_SEPOLIA_KEY
+        sync: false
+      - key: SOLVER_MEZO_KEY
+        sync: false
+      - key: SEPOLIA_RPC_URL
+        value: https://ethereum-sepolia-rpc.publicnode.com
+      - key: MEZO_RPC_URL
+        value: https://rpc.test.mezo.org
